@@ -224,3 +224,4 @@ button.tekstknop { background: none; color: var(--rood); min-height: 0; padding:
 .plek .n2 { font-size: 12px; font-style: italic; font-weight: 700; color: #ffe08a; max-width: 100%; text-align: center; }
 .plek.gekozen { outline: 3px solid var(--amber); outline-offset: 0; background: rgba(0,0,0,.18); }
 .plek.statisch { cursor: default; }
+.codeveld { text-align: center; font-size: 28px; font-weight: 800; letter-spacing: .25em; min-height: 60px; }
