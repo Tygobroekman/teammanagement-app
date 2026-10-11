@@ -2,14 +2,15 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { genereer, type GenSpeler } from '../lib/generator'
+import { veldNu } from '../lib/minuten'
 import type { Attendance, FormationSlot, Match, Player, PlayerPosition } from '../lib/types'
 
 type SeizoenRij = { player_id: string; aanwezig: number; minuten_gespeeld: number }
 
 const BLOKKEN = [
-  { waarde: 2, label: 'Weinig wissels', uitleg: 'Alleen bij de rust' },
-  { waarde: 4, label: 'Normaal', uitleg: 'Rust en twee keer erbij' },
-  { waarde: 6, label: 'Veel wissels', uitleg: 'Elke 15 minuten, eerlijkst' },
+  { waarde: 2, label: 'Alleen in de rust', uitleg: 'Een opstelling voor de 1e helft en een voor de 2e helft.' },
+  { waarde: 4, label: 'Rust + extra', uitleg: 'Wissels in de rust en nog twee keer tijdens de helften.' },
+  { waarde: 6, label: 'Elke 15 min', uitleg: 'Meeste wissels, eerlijkste verdeling.' },
 ]
 
 export default function Generator() {
@@ -23,7 +24,7 @@ export default function Generator() {
   const [seizoen, setSeizoen] = useState<SeizoenRij[]>([])
   const [bestaand, setBestaand] = useState({ basis: 0, wissels: 0 })
   const [weging, setWeging] = useState(50)
-  const [blokken, setBlokken] = useState(4)
+  const [blokken, setBlokken] = useState(2)
   const [bezig, setBezig] = useState(false)
   const [fout, setFout] = useState<string | null>(null)
 
@@ -117,6 +118,10 @@ export default function Generator() {
   }
 
   const aantal = genSpelers.length
+  const basisMap = new Map((voorstel?.basis ?? []).map((b) => [b.slot, b.player_id]))
+  const tweedeHelft = veldNu(basisMap, voorstel?.wissels ?? [])
+  const bank1 = genSpelers.map((g) => g.id).filter((pid) => ![...basisMap.values()].includes(pid))
+  const bank2 = genSpelers.map((g) => g.id).filter((pid) => ![...tweedeHelft.values()].includes(pid))
   const minuutLijst = voorstel
     ? [...voorstel.minuten.entries()].sort((a, b) => b[1] - a[1])
     : []
@@ -164,29 +169,54 @@ export default function Generator() {
 
           {voorstel && (
             <>
-              <h2>Basisopstelling</h2>
-              <div className="veld">
-                {slots.map((s) => {
-                  const b = voorstel.basis.find((x) => x.slot === s.slot)
-                  return (
-                    <div key={s.slot} className="plek gevuld statisch" style={{ left: `${s.x}%`, top: `${s.y}%` }}>
-                      <span className="pos">{s.position_code}</span>
-                      <span className="nm">{b ? naam(b.player_id) : '-'}</span>
-                    </div>
-                  )
-                })}
-              </div>
+              {blokken === 2 ? (
+                <>
+                  <h2>1e helft: basis</h2>
+                  <Speelveld slots={slots} veld={basisMap} naam={naam} />
+                  <p>
+                    <strong>Bank 1e helft:</strong>{' '}
+                    {bank1.length ? bank1.map(naam).join(', ') : 'niemand'}
+                  </p>
 
-              <h2>Wisselplan ({voorstel.wissels.length})</h2>
-              {voorstel.wissels.length === 0 ? <p className="sub">Geen wissels in dit voorstel.</p> : (
-                <ul className="lijst">
-                  {voorstel.wissels.map((w, i) => (
-                    <li key={i} className="aanw">
-                      <span>{w.minuut}' {naam(w.player_in)} erin, {naam(w.player_out)} eruit</span>
-                      <span className="sub">{posVan(w.slot)}</span>
-                    </li>
-                  ))}
-                </ul>
+                  <h2>In de rust ({voorstel.wissels.length} wissel{voorstel.wissels.length === 1 ? '' : 's'})</h2>
+                  {voorstel.wissels.length === 0 ? <p className="sub">Niemand wisselt in de rust.</p> : (
+                    <ul className="lijst">
+                      {voorstel.wissels.map((w, i) => (
+                        <li key={i} className="aanw">
+                          <span><strong>{naam(w.player_in)}</strong> erin voor {naam(w.player_out)}</span>
+                          <span className="sub">{posVan(w.slot)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  <h2>2e helft</h2>
+                  <Speelveld slots={slots} veld={tweedeHelft} naam={naam} />
+                  <p>
+                    <strong>Bank 2e helft:</strong>{' '}
+                    {bank2.length ? bank2.map(naam).join(', ') : 'niemand'}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h2>Basisopstelling</h2>
+                  <Speelveld slots={slots} veld={basisMap} naam={naam} />
+                  <p>
+                    <strong>Bank:</strong> {bank1.length ? bank1.map(naam).join(', ') : 'niemand'}
+                  </p>
+
+                  <h2>Wisselplan ({voorstel.wissels.length})</h2>
+                  {voorstel.wissels.length === 0 ? <p className="sub">Geen wissels in dit voorstel.</p> : (
+                    <ul className="lijst">
+                      {voorstel.wissels.map((w, i) => (
+                        <li key={i} className="aanw">
+                          <span>{w.minuut}' {naam(w.player_in)} erin, {naam(w.player_out)} eruit</span>
+                          <span className="sub">{posVan(w.slot)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </>
               )}
 
               <h2>Speeltijd in dit voorstel</h2>
@@ -224,5 +254,27 @@ export default function Generator() {
         </>
       )}
     </>
+  )
+}
+
+function Speelveld({
+  slots, veld, naam,
+}: {
+  slots: FormationSlot[]
+  veld: Map<number, string>
+  naam: (pid: string) => string
+}) {
+  return (
+    <div className="veld">
+      {slots.map((s) => {
+        const pid = veld.get(s.slot)
+        return (
+          <div key={s.slot} className="plek gevuld statisch" style={{ left: `${s.x}%`, top: `${s.y}%` }}>
+            <span className="pos">{s.position_code}</span>
+            <span className="nm">{pid ? naam(pid) : '-'}</span>
+          </div>
+        )
+      })}
+    </div>
   )
 }
