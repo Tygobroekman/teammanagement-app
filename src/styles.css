@@ -210,3 +210,5 @@ legend { font-weight: 700; font-size: 13px; text-transform: uppercase; letter-sp
 .speler .blok > span:first-child { font-weight: 600; }
 .speler .blok .regelsub { font-size: 12px; font-weight: 400; white-space: normal; }
 button.tekstknop { background: none; color: var(--rood); min-height: 0; padding: 0; font-size: 12px; font-weight: 600; text-decoration: underline; display: inline; }
+.meldingen { margin: 6px 0 0; padding-left: 18px; }
+.meldingen li { margin: 2px 0; }

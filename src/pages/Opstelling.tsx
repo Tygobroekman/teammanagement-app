@@ -33,6 +33,7 @@ export default function Opstelling() {
   const [helft, setHelft] = useState<1 | 2>(1)
   const [sel, setSel] = useState<Selectie>(null)
   const [voorstelOpen, setVoorstelOpen] = useState(false)
+  const [meldingen, setMeldingen] = useState<string[]>([])
   const [weging, setWeging] = useState(50)
   const [bezig, setBezig] = useState(false)
   const [fout, setFout] = useState<string | null>(null)
@@ -167,6 +168,14 @@ export default function Opstelling() {
     setSel(null)
     setVoorstelOpen(false)
     setFout(null)
+    // Waarschuwen voor wat het voorstel niet goed kon invullen.
+    const m: string[] = []
+    for (const pid of v.zonderPositie) m.push(`${naam(pid)} heeft geen posities ingevuld en wordt niet ingezet.`)
+    for (const b of v.buitenPositie) {
+      const pos = slots.find((x) => x.slot === b.slot)?.position_code ?? ''
+      m.push(`${naam(b.player_id)} staat op ${pos}, maar daar is geen niveau voor ingevuld. Er was niemand anders voor die plek.`)
+    }
+    setMeldingen(m)
   }
 
   async function opslaan() {
@@ -254,6 +263,13 @@ export default function Opstelling() {
             </>
           )}
         </fieldset>
+      )}
+
+      {meldingen.length > 0 && (
+        <div className="banner">
+          <strong>Let op bij dit voorstel:</strong>
+          <ul className="meldingen">{meldingen.map((t, i) => <li key={i}>{t}</li>)}</ul>
+        </div>
       )}
 
       <p className="sub hint">

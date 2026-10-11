@@ -20,12 +20,26 @@ export type GenVoorstel = {
   basis: { slot: number; player_id: string }[]
   wissels: GenWissel[]
   minuten: Map<string, number>
+  // Spelers die op een positie staan waar je geen niveau voor hebt ingevuld (alleen als het niet anders kon).
+  buitenPositie: { player_id: string; slot: number }[]
+  // Spelers voor wie geen enkele positie van deze formatie is opgegeven.
+  zonderPositie: string[]
 }
 
 const ONBEKEND_NIVEAU = 0.5
 const VOORKEUR_BONUS = 0.25
-const BLIJF_BONUS = 10 // doorspelen op dezelfde plek gaat voor alles
+const BLIJF_BONUS = 6 // doorspelen op dezelfde plek gaat voor een andere positie (sterkte loopt tot ongeveer 5)
 const SEIZOEN_GEWICHT = 0.5 // hoeveel van het seizoenstekort in minuten wordt bijgesteld
+// Gewichten voor het kiezen per blok. Hoe groter, hoe zwaarder het telt:
+const BEHOEFTE_GEWICHT = 1000 // wie nog minuten nodig heeft, gaat voor
+const VERPLICHT_BONUS = 3000 // wie de rest van de wedstrijd moet spelen om zijn minuten te halen
+const GEEN_RUST = 3000 // wie zijn minuten al heeft, speelt alleen mee als het niet anders kan
+const ONTOEGESTAAN = 20000 // een positie waar een speler niet voor is opgegeven, alleen als niemand anders kan
+
+// Een speler mag alleen op posities staan waar een niveau voor is ingevuld (of zijn voorkeurspositie).
+export function kan(s: GenSpeler, positie: string) {
+  return (s.niveaus[positie] ?? 0) > 0 || s.voorkeur === positie
+}
 
 export function sterkte(s: GenSpeler, positie: string) {
   return (s.niveaus[positie] ?? ONBEKEND_NIVEAU) + (s.voorkeur === positie ? VOORKEUR_BONUS : 0)
@@ -105,7 +119,9 @@ export function genereer(opts: {
 
   const kies = (kandidaten: GenSpeler[], vorige?: Map<string, number>) => {
     const kosten = veldSlots.map((sl) =>
-      kandidaten.map((sp) => -(sterkte(sp, sl.position_code) + (vorige?.get(sp.id) === sl.slot ? BLIJF_BONUS : 0))),
+      kandidaten.map((sp) =>
+        -(sterkte(sp, sl.position_code) + (vorige?.get(sp.id) === sl.slot ? BLIJF_BONUS : 0) - (kan(sp, sl.position_code) ? 0 : ONTOEGESTAAN)),
+      ),
     )
     return hongaars(kosten).map((j, i) => ({ slot: veldSlots[i].slot, speler: kandidaten[j] }))
   }
@@ -133,56 +149,56 @@ export function genereer(opts: {
     if (n[i] < K) { n[i]++; tekort-- }
   }
 
-  // 4. Per blok f spelers kiezen op basis van resterende behoefte.
+  // 4. Per blok tegelijk kiezen wie er speelt en waar, zodat niemand op een niet opgegeven positie
+  // terechtkomt zolang een ander die plek kan invullen. Doorspelers blijven op hun plek staan.
   const rest = [...n]
-  const opVeld = new Set<string>()
-  const keuzes: GenSpeler[][] = []
-  for (let b = 0; b < K; b++) {
-    const over = K - b
-    const idx = pool.map((_, i) => i)
-    const verplicht = idx.filter((i) => rest[i] >= over)
-    const kandi = idx
-      .filter((i) => rest[i] > 0 && rest[i] < over)
-      .sort((a, c) => {
-        const sa = rest[a] / over + (sterkste.has(pool[a].id) ? 0.03 : 0) + (opVeld.has(pool[a].id) ? 0.02 : 0)
-        const sc = rest[c] / over + (sterkste.has(pool[c].id) ? 0.03 : 0) + (opVeld.has(pool[c].id) ? 0.02 : 0)
-        return sc - sa
-      })
-    const gekozen = [...verplicht, ...kandi].slice(0, f)
-    for (const i of gekozen) rest[i]--
-    opVeld.clear()
-    gekozen.forEach((i) => opVeld.add(pool[i].id))
-    keuzes.push(gekozen.map((i) => pool[i]))
-  }
-
-  // 5. Per blok de gekozen spelers aan posities toewijzen; doorspelers blijven staan.
   const grenzen = Array.from({ length: K + 1 }, (_, b) => Math.round((b * duur) / K))
   let vorige: Map<string, number> | undefined
   const basis: { slot: number; player_id: string }[] = []
   const wissels: GenWissel[] = []
   const minuten = new Map<string, number>()
+  const buitenPositie: { player_id: string; slot: number }[] = []
   const tel = (id: string, m: number) => minuten.set(id, (minuten.get(id) ?? 0) + m)
   if (keeper && keeperSlot) {
     basis.push({ slot: keeperSlot.slot, player_id: keeper.id })
     tel(keeper.id, duur)
   }
   for (let b = 0; b < K; b++) {
-    const toewijzing = kies(keuzes[b], vorige)
-    const nu = new Map(toewijzing.map((t) => [t.speler.id, t.slot]))
-    for (const t of toewijzing) tel(t.speler.id, grenzen[b + 1] - grenzen[b])
+    const over = K - b
+    const kosten = veldSlots.map((sl) =>
+      pool.map((sp, i) => {
+        const key = rest[i] / over + (sterkste.has(sp.id) ? 0.03 : 0) + (vorige?.has(sp.id) ? 0.02 : 0)
+        let score = BEHOEFTE_GEWICHT * key + sterkte(sp, sl.position_code)
+        if (rest[i] >= over) score += VERPLICHT_BONUS
+        if (rest[i] <= 0) score -= GEEN_RUST
+        if (vorige?.get(sp.id) === sl.slot) score += BLIJF_BONUS
+        if (!kan(sp, sl.position_code)) score -= ONTOEGESTAAN
+        return -score
+      }),
+    )
+    const toewijzing = hongaars(kosten).map((j, i) => ({ slot: veldSlots[i], speler: pool[j], idx: j }))
+    const nu = new Map(toewijzing.map((t) => [t.speler.id, t.slot.slot]))
+    for (const t of toewijzing) {
+      rest[t.idx]--
+      tel(t.speler.id, grenzen[b + 1] - grenzen[b])
+      if (!kan(t.speler, t.slot.position_code) && !buitenPositie.some((x) => x.player_id === t.speler.id && x.slot === t.slot.slot)) {
+        buitenPositie.push({ player_id: t.speler.id, slot: t.slot.slot })
+      }
+    }
     if (b === 0) {
-      toewijzing.forEach((t) => basis.push({ slot: t.slot, player_id: t.speler.id }))
+      toewijzing.forEach((t) => basis.push({ slot: t.slot.slot, player_id: t.speler.id }))
     } else {
       const wasOpSlot = new Map([...(vorige ?? [])].map(([id, slot]) => [slot, id]))
       for (const t of toewijzing) {
-        const eruit = wasOpSlot.get(t.slot)
+        const eruit = wasOpSlot.get(t.slot.slot)
         if (eruit && eruit !== t.speler.id) {
-          wissels.push({ minuut: grenzen[b], slot: t.slot, player_in: t.speler.id, player_out: eruit })
+          wissels.push({ minuut: grenzen[b], slot: t.slot.slot, player_in: t.speler.id, player_out: eruit })
         }
       }
     }
     vorige = nu
   }
+  const zonderPositie = spelers.filter((sp) => !slots.some((sl) => kan(sp, sl.position_code))).map((sp) => sp.id)
   basis.sort((a, c) => a.slot - c.slot)
-  return { basis, wissels, minuten }
+  return { basis, wissels, minuten, buitenPositie, zonderPositie }
 }
