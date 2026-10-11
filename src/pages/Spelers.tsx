@@ -13,6 +13,7 @@ export default function Spelers() {
     supabase
       .from('players')
       .select('*')
+      .eq('leenspeler', false)
       .order('naam')
       .then(({ data, error }) => {
         if (error) setFout('Spelers laden mislukt.')

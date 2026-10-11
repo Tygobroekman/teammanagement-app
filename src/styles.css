@@ -205,3 +205,8 @@ legend { font-weight: 700; font-size: 13px; text-transform: uppercase; letter-sp
 .bankinvoer span { width: 26px; }
 
 .vraagtekst { white-space: pre-line; font-size: 17px; margin: 4px 0 16px; }
+
+.speler .blok { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.speler .blok > span:first-child { font-weight: 600; }
+.speler .blok .regelsub { font-size: 12px; font-weight: 400; white-space: normal; }
+button.tekstknop { background: none; color: var(--rood); min-height: 0; padding: 0; font-size: 12px; font-weight: 600; text-decoration: underline; display: inline; }

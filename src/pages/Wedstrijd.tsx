@@ -6,7 +6,7 @@ import { speelminuten, veldNu } from '../lib/minuten'
 import Speelveld from '../components/Speelveld'
 import { useBevestig } from '../components/Bevestig'
 import type {
-  AttStatus, Attendance, FormationSlot, LineupSlot, Match, MatchStatus, Player, Substitution,
+  AttStatus, Attendance, FormationSlot, LineupSlot, Match, MatchStatus, Player, Position, Substitution,
 } from '../lib/types'
 
 const STATUSSEN: { waarde: AttStatus; label: string; teken: string }[] = [
@@ -32,6 +32,12 @@ export default function Wedstrijd() {
   const [voor, setVoor] = useState('')
   const [tegen, setTegen] = useState('')
   const [bezig, setBezig] = useState(false)
+  const [posities, setPosities] = useState<Position[]>([])
+  const [leenOpen, setLeenOpen] = useState(false)
+  const [leenNaam, setLeenNaam] = useState('')
+  const [leenPositie, setLeenPositie] = useState('')
+  const [leenNiveau, setLeenNiveau] = useState('3')
+  const [leenBank, setLeenBank] = useState('0')
   const { vraag, dialoog } = useBevestig()
   const [bankWaarden, setBankWaarden] = useState<Record<string, string>>({})
   const [melding, setMelding] = useState<string | null>(null)
@@ -42,20 +48,22 @@ export default function Wedstrijd() {
     const m = await supabase.from('matches').select('*').eq('id', id).single()
     if (m.error) return setFout('Wedstrijd niet gevonden.')
     const wedstrijd = m.data as Match
-    const [fs, pl, at, lu, sb] = await Promise.all([
+    const [fs, pl, at, lu, sb, ps] = await Promise.all([
       supabase.from('formation_slots').select('*').eq('formation_code', wedstrijd.formation_code).order('slot'),
       supabase.from('players').select('*').order('naam'),
       supabase.from('attendance').select('*').eq('match_id', id),
       supabase.from('lineup_slots').select('*').eq('match_id', id),
       supabase.from('substitutions').select('*').eq('match_id', id).order('minuut').order('id'),
+      supabase.from('positions').select('*').order('volgorde'),
     ])
-    if ([fs, pl, at, lu, sb].some((r) => r.error)) return setFout('Laden mislukt.')
+    if ([fs, pl, at, lu, sb, ps].some((r) => r.error)) return setFout('Laden mislukt.')
     setMatch(wedstrijd)
     setSlots(fs.data as FormationSlot[])
     setSpelers(pl.data as Player[])
     setAanw(at.data as Attendance[])
     setBasis(lu.data as LineupSlot[])
     setWissels(sb.data as Substitution[])
+    setPosities(ps.data as Position[])
     setVoor(wedstrijd.doelpunten_voor?.toString() ?? '')
     setTegen(wedstrijd.doelpunten_tegen?.toString() ?? '')
     setFout(null)
@@ -75,7 +83,8 @@ export default function Wedstrijd() {
   const rustWissels = wissels.filter((w) => w.minuut === rust)
   const tweedeHelft = veldNu(basisMap, rustWissels)
   const inBasis = new Set(basis.map((b) => b.player_id))
-  const zichtbaar = spelers.filter((s) => s.actief || statusVan(s.id) || inBasis.has(s.id))
+  // Leenspelers van andere wedstrijden horen hier niet te staan.
+  const zichtbaar = spelers.filter((s) => (!s.leenspeler || s.leen_match_id === id) && (s.actief || statusVan(s.id) || inBasis.has(s.id)))
   const aanwezig = zichtbaar.filter((s) => statusVan(s.id) === 'aanwezig')
   const aantalAanwezig = aanwezig.length
   const klaarOk = aantalAanwezig >= slots.length && basis.length === slots.length
@@ -155,13 +164,91 @@ export default function Wedstrijd() {
     await zetMatchStatus('definitief', { doelpunten_voor: Number(voor), doelpunten_tegen: Number(tegen) })
   }
 
+  async function voegLeenToe() {
+    const n = leenNaam.trim()
+    if (!n) return setFout('Vul de naam van de leenspeler in.')
+    const bank = status === 'concept' ? null : leenBank.trim()
+    if (bank !== null && (!/^\d+$/.test(bank) || Number(bank) > duur)) return setFout(`Vul bankminuten in tussen 0 en ${duur}.`)
+    setBezig(true)
+    setFout(null)
+    const ins = await supabase.from('players')
+      .insert({ naam: n, leenspeler: true, leen_match_id: id, voorkeurspositie: leenPositie || null, actief: true })
+      .select('id').single()
+    if (ins.error) { setBezig(false); return setFout('Leenspeler toevoegen mislukt.') }
+    const pid = ins.data.id as string
+    if (leenPositie) await supabase.from('player_positions').insert({ player_id: pid, position_code: leenPositie, niveau: Number(leenNiveau) })
+    const att = await supabase.from('attendance').insert({
+      match_id: id, player_id: pid, status: 'aanwezig', minuten_bank: bank === null ? null : Number(bank),
+    })
+    setBezig(false)
+    if (att.error) return setFout('Leenspeler opslaan mislukt.')
+    setLeenNaam(''); setLeenPositie(''); setLeenNiveau('3'); setLeenBank('0'); setLeenOpen(false)
+    await laad()
+  }
+
+  async function verwijderLeen(pid: string) {
+    if (!(await vraag(`${naam(pid)} verwijderen uit deze wedstrijd?`))) return
+    await supabase.from('substitutions').delete().eq('match_id', id).or(`player_in.eq.${pid},player_out.eq.${pid}`)
+    await supabase.from('lineup_slots').delete().eq('match_id', id).eq('player_id', pid)
+    await supabase.from('attendance').delete().eq('match_id', id).eq('player_id', pid)
+    const { error } = await supabase.from('players').delete().eq('id', pid)
+    if (error) return setFout('Verwijderen mislukt.')
+    await laad()
+  }
+
+  const leenFormulier = (
+    <>
+      {leenOpen ? (
+        <fieldset>
+          <legend>Leenspeler toevoegen</legend>
+          <label>
+            Naam
+            <input value={leenNaam} onChange={(e) => setLeenNaam(e.target.value)} placeholder="Voornaam" />
+          </label>
+          <label>
+            Positie (voor het voorstel)
+            <select value={leenPositie} onChange={(e) => setLeenPositie(e.target.value)}>
+              <option value="">Geen voorkeur</option>
+              {posities.map((p) => <option key={p.code} value={p.code}>{p.naam}</option>)}
+            </select>
+          </label>
+          {leenPositie && (
+            <label>
+              Niveau op die positie
+              <select value={leenNiveau} onChange={(e) => setLeenNiveau(e.target.value)}>
+                {[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </label>
+          )}
+          {status !== 'concept' && (
+            <label>
+              Bankminuten (0 als hij de hele wedstrijd speelde)
+              <input type="number" inputMode="numeric" min={0} max={duur} value={leenBank} onChange={(e) => setLeenBank(e.target.value)} />
+            </label>
+          )}
+          <button disabled={bezig} onClick={voegLeenToe}>Toevoegen</button>
+          <button className="link" onClick={() => setLeenOpen(false)}>Annuleren</button>
+        </fieldset>
+      ) : (
+        <button className="grijsknop breed-knop-b" onClick={() => setLeenOpen(true)}>Leenspeler toevoegen</button>
+      )}
+    </>
+  )
+
   const bewerkbaar = status === 'concept'
 
   const aanwRij = (s: Player) => (
     <li key={s.id} className="aanw">
       <span className={`speler ${s.actief ? '' : 'inactief'}`}>
         <span className="avatar" style={avatarStijl(s.naam)}>{initialen(s.naam)}</span>
-        <span>{s.naam}</span>
+        <span className="blok">
+          <span>{s.naam}</span>
+          {s.leenspeler && (
+            <span className="sub regelsub">
+              leenspeler · <button type="button" className="tekstknop" onClick={() => verwijderLeen(s.id)}>verwijderen</button>
+            </span>
+          )}
+        </span>
       </span>
       <div className="keuze compact">
         {STATUSSEN.map((st) => (
@@ -233,7 +320,10 @@ export default function Wedstrijd() {
             <li key={pid} className="aanw">
               <span className="speler">
                 <span className="avatar" style={avatarStijl(naam(pid))}>{initialen(naam(pid))}</span>
-                <span>{naam(pid)}</span>
+                <span className="blok">
+                  <span>{naam(pid)}</span>
+                  {spelers.find((x) => x.id === pid)?.leenspeler && <span className="sub regelsub">leenspeler</span>}
+                </span>
               </span>
               <span className="bankinvoer">
                 <input
@@ -251,6 +341,7 @@ export default function Wedstrijd() {
           ))}
         </ul>
       )}
+      {leenFormulier}
       <p className="sub">
         Totaal {bankSom} minuten. Bij {deelnemers.length} aanwezigen is dat normaal {bankVerwacht}. Een hoger totaal klopt
         als er andere spelers (bijvoorbeeld leenspelers) hebben meegespeeld.
@@ -303,13 +394,20 @@ export default function Wedstrijd() {
       {status === 'concept' && (
         <>
           <h2>Aanwezigheid ({aantalAanwezig} aanwezig)</h2>
-          <ul className="lijst">{zichtbaar.filter((s) => !s.langdurig_geblesseerd).map(aanwRij)}</ul>
+          <ul className="lijst">{zichtbaar.filter((s) => !s.langdurig_geblesseerd && !s.leenspeler).map(aanwRij)}</ul>
           {zichtbaar.some((s) => s.langdurig_geblesseerd) && (
             <>
               <h3>Langdurig geblesseerd</h3>
               <ul className="lijst">{zichtbaar.filter((s) => s.langdurig_geblesseerd).map(aanwRij)}</ul>
             </>
           )}
+          {zichtbaar.some((s) => s.leenspeler) && (
+            <>
+              <h3>Leenspelers</h3>
+              <ul className="lijst">{zichtbaar.filter((s) => s.leenspeler).map(aanwRij)}</ul>
+            </>
+          )}
+          {leenFormulier}
           <p className="sub">Vinkje = aanwezig, kruisje = afwezig, plus = geblesseerd. Tik nogmaals om te wissen.</p>
 
           <h2>Opstelling</h2>

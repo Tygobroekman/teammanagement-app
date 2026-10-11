@@ -10,6 +10,8 @@ export type Player = {
   notities: string | null
   actief: boolean
   langdurig_geblesseerd: boolean
+  leenspeler: boolean
+  leen_match_id: string | null
 }
 
 export type PlayerPosition = { player_id: string; position_code: string; niveau: number }
