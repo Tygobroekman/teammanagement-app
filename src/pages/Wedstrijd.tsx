@@ -253,6 +253,7 @@ export default function Wedstrijd() {
         Totaal {bankSom} minuten. Bij {deelnemers.length} aanwezigen is dat {bankVerwacht} als er steeds {slots.length} spelers
         op het veld stonden.
       </p>
+      {fout && <p className="fout">{fout}</p>}
       <button className="grijsknop breed-knop-b" disabled={bezig} onClick={() => slaBankOp()}>Bankminuten opslaan</button>
       {melding && <p className="banner ok">{melding}</p>}
     </>
@@ -358,6 +359,7 @@ export default function Wedstrijd() {
             <input type="number" inputMode="numeric" min={0} value={tegen} onChange={(e) => setTegen(e.target.value)} aria-label="Doelpunten tegenstander" />
           </div>
           <p className="sub">Wij - tegenstander</p>
+          {fout && <p className="fout">{fout}</p>}
           <button className="breed-knop-b" disabled={bezig} onClick={definitief}>Wedstrijd definitief opslaan</button>
           <button className="link" onClick={() => zetMatchStatus('concept')}>Terug naar voorbereiden</button>
         </>

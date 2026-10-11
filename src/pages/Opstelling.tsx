@@ -200,8 +200,6 @@ export default function Opstelling() {
       const is = await supabase.from('substitutions').insert(rijen)
       if (is.error) { setBezig(false); return setFout('Wissels opslaan mislukt.') }
     }
-    // Bankminuten volgen weer uit de opstelling zodra die verandert.
-    await supabase.from('attendance').update({ minuten_bank: null }).eq('match_id', id)
     setBezig(false)
     navigate(`/wedstrijden/${id}`)
   }
