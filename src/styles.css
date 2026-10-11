@@ -1,0 +1,10 @@
+:root {
+  --groen: #0b6b3a;
+  --bg: #f6f7f6;
+  --tekst: #14201a;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--tekst); }
+.page { max-width: 640px; margin: 0 auto; padding: 16px; padding-bottom: env(safe-area-inset-bottom); }
+h1 { color: var(--groen); }
