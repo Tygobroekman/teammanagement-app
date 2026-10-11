@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { supabase } from '../lib/supabase'
+import Logo from '../components/Logo'
 
 // Wachtwoordloos inloggen met een link per e-mail.
 // De link brengt je terug naar deze pagina en logt je automatisch in.
@@ -26,35 +27,41 @@ export default function Login() {
   }
 
   return (
-    <main className="page">
+    <main className="inlog">
+      <Logo className="logo" />
       <h1>Opstelling</h1>
-      {verstuurd ? (
-        <div className="form">
-          <p>
-            We hebben een inloglink gemaild naar <strong>{email}</strong>. Open de mail op dit
-            apparaat en tik op de link.
-          </p>
-          <button type="button" className="link" onClick={() => setVerstuurd(false)}>
-            Ander e-mailadres
-          </button>
-        </div>
-      ) : (
-        <form onSubmit={stuurLink} className="form">
-          <label>
-            E-mailadres
-            <input
-              type="email"
-              inputMode="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </label>
-          <button disabled={bezig}>{bezig ? 'Versturen...' : 'Stuur inloglink'}</button>
-        </form>
-      )}
-      {fout && <p className="fout">{fout}</p>}
+      <p className="sub">Opstellingen, wissels en speelminuten van ons team.</p>
+      <div className="kaart">
+        {verstuurd ? (
+          <div className="form">
+            <p>
+              We hebben een inloglink gemaild naar <strong>{email}</strong>. Open de mail op dit
+              apparaat en tik op de link.
+            </p>
+            <button type="button" className="link" onClick={() => setVerstuurd(false)}>
+              Ander e-mailadres
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={stuurLink} className="form">
+            <label>
+              E-mailadres
+              <input
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                placeholder="naam@voorbeeld.nl"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </label>
+            <button disabled={bezig}>{bezig ? 'Versturen...' : 'Stuur inloglink'}</button>
+            <p className="sub">Alleen captains kunnen inloggen. Je krijgt een link per e-mail, een wachtwoord is niet nodig.</p>
+          </form>
+        )}
+        {fout && <p className="fout">{fout}</p>}
+      </div>
     </main>
   )
 }

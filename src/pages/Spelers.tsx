@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { avatarStijl, initialen } from '../lib/format'
 import type { Player } from '../lib/types'
 
 export default function Spelers() {
@@ -30,10 +31,13 @@ export default function Spelers() {
   const rij = (s: Player) => (
     <li key={s.id}>
       <Link to={`/spelers/${s.id}`} className={s.actief ? '' : 'inactief'}>
-        <span>{s.naam}</span>
-        <span className="sub">
-          {s.voorkeurspositie ?? ''} {s.actief ? '' : '(inactief)'}
+        <span className="speler">
+          <span className="avatar" style={avatarStijl(s.naam)}>{initialen(s.naam)}</span>
+          <span>{s.naam}</span>
         </span>
+        {s.actief
+          ? s.voorkeurspositie && <span className="chipje">{s.voorkeurspositie}</span>
+          : <span className="chipje grijs">inactief</span>}
       </Link>
     </li>
   )
@@ -48,7 +52,7 @@ export default function Spelers() {
         <input type="checkbox" checked={toonInactief} onChange={(e) => setToonInactief(e.target.checked)} />
         Toon ook inactieve spelers
       </label>
-      {zichtbaar.length === 0 && <p>Nog geen spelers. Voeg de eerste toe.</p>}
+      {zichtbaar.length === 0 && <p className="leeg-staat">Nog geen spelers. Voeg de eerste toe.</p>}
       <ul className="lijst">{gewoon.map(rij)}</ul>
       {blessure.length > 0 && (
         <>

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { datumTijd } from '../lib/format'
+import { avatarStijl, datumTijd, initialen } from '../lib/format'
 import { speelminuten, veldNu } from '../lib/minuten'
 import Speelveld from '../components/Speelveld'
 import type {
@@ -119,7 +119,10 @@ export default function Wedstrijd() {
 
   const aanwRij = (s: Player) => (
     <li key={s.id} className="aanw">
-      <span className={s.actief ? '' : 'inactief'}>{s.naam}</span>
+      <span className={`speler ${s.actief ? '' : 'inactief'}`}>
+        <span className="avatar" style={avatarStijl(s.naam)}>{initialen(s.naam)}</span>
+        <span>{s.naam}</span>
+      </span>
       <div className="keuze compact">
         {STATUSSEN.map((st) => (
           <button
@@ -172,7 +175,7 @@ export default function Wedstrijd() {
     </>
   )
 
-  const speeltijd = (
+  const speeltijd = deelnemers.length === 0 ? null : (
     <>
       <h2>Speeltijd</h2>
       <ul className="lijst">
@@ -188,15 +191,18 @@ export default function Wedstrijd() {
 
   return (
     <>
-      <div className="rij">
-        <div>
-          <h1>{match.thuis_uit === 'thuis' ? 'Thuis' : 'Uit'} tegen {match.tegenstander}</h1>
-          <span className="sub">
-            {datumTijd(match.aanvang)}
-            {match.doelpunten_voor !== null && match.doelpunten_tegen !== null && ` · ${match.doelpunten_voor} - ${match.doelpunten_tegen}`}
-          </span>
+      <div className="kop-kaart">
+        <div className="rij">
+          <span className="sub">{datumTijd(match.aanvang)}</span>
+          <span className={`pil ${status}`}>{status}</span>
         </div>
-        {status !== 'definitief' && <Link to={`/wedstrijden/${id}/bewerken`} className="link klein">Bewerken</Link>}
+        <h1>{match.thuis_uit === 'thuis' ? 'Thuis' : 'Uit'} tegen {match.tegenstander}</h1>
+        <div className="rij">
+          <span className="uitslagtekst">
+            {match.doelpunten_voor !== null && match.doelpunten_tegen !== null ? `${match.doelpunten_voor} - ${match.doelpunten_tegen}` : ''}
+          </span>
+          {status !== 'definitief' && <Link to={`/wedstrijden/${id}/bewerken`} className="link klein">Bewerken</Link>}
+        </div>
       </div>
 
       <ol className="stappen">

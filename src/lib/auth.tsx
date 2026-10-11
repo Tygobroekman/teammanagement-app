@@ -9,7 +9,7 @@ type AuthState = {
   signOut: () => Promise<void>
 }
 
-const AuthContext = createContext<AuthState | null>(null)
+export const AuthContext = createContext<AuthState | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)

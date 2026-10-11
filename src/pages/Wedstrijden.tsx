@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { standaardSeizoenNaam, useSeasons } from '../lib/useSeasons'
-import { datumTijd } from '../lib/format'
+import { datumBlok } from '../lib/format'
 import type { Match } from '../lib/types'
 
 export default function Wedstrijden() {
@@ -65,22 +65,27 @@ export default function Wedstrijden() {
         </button>
       </div>
       {fout && <p className="fout">{fout}</p>}
-      {!wedstrijden ? <p>Laden...</p> : wedstrijden.length === 0 ? <p>Nog geen wedstrijden dit seizoen.</p> : (
+      {!wedstrijden ? <p>Laden...</p> : wedstrijden.length === 0 ? <p className="leeg-staat">Nog geen wedstrijden dit seizoen.</p> : (
         <ul className="lijst">
-          {wedstrijden.map((m) => (
-            <li key={m.id}>
-              <Link to={`/wedstrijden/${m.id}`}>
-                <span>
-                  {m.thuis_uit === 'thuis' ? 'Thuis' : 'Uit'} tegen {m.tegenstander}
-                  <br /><span className="sub">{datumTijd(m.aanvang)}</span>
-                </span>
-                <span className="sub">
-                  {m.doelpunten_voor !== null && m.doelpunten_tegen !== null ? `${m.doelpunten_voor} - ${m.doelpunten_tegen} ` : ''}
-                  {m.status}
-                </span>
-              </Link>
-            </li>
-          ))}
+          {wedstrijden.map((m) => {
+            const d = datumBlok(m.aanvang)
+            const gespeeld = m.doelpunten_voor !== null && m.doelpunten_tegen !== null
+            return (
+              <li key={m.id}>
+                <Link to={`/wedstrijden/${m.id}`} className="wk">
+                  <span className="datum"><b>{d.dag}</b><small>{d.maand}</small></span>
+                  <span className="tekst">
+                    <strong>{m.thuis_uit === 'thuis' ? 'Thuis' : 'Uit'} tegen {m.tegenstander}</strong>
+                    <span className="sub">{d.tijd}</span>
+                  </span>
+                  <span className="rechts">
+                    {gespeeld && <span className="uitslagtekst">{m.doelpunten_voor} - {m.doelpunten_tegen}</span>}
+                    <span className={`pil ${m.status}`}>{m.status}</span>
+                  </span>
+                </Link>
+              </li>
+            )
+          })}
         </ul>
       )}
     </>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useSeasons } from '../lib/useSeasons'
+import { avatarStijl, initialen } from '../lib/format'
 
 type Rij = {
   player_id: string
@@ -49,13 +50,13 @@ export default function Seizoen() {
     <>
       <h1>Seizoen</h1>
       <div className="regel">
-        <select value={currentId ?? ''} onChange={(e) => kies(e.target.value)}>
-          {seasons.map((s) => <option key={s.id} value={s.id}>Seizoen {s.naam}</option>)}
+        <select value={currentId ?? ''} onChange={(e) => kies(e.target.value)} aria-label="Seizoen">
+          {seasons.map((s) => <option key={s.id} value={s.id}>{s.naam}</option>)}
         </select>
         <select value={sort} onChange={(e) => setSort(e.target.value as Sortering)} aria-label="Sorteren">
-          <option value="gespeeld">Meeste minuten</option>
-          <option value="bank">Meeste bankminuten</option>
-          <option value="aanwezig">Meest aanwezig</option>
+          <option value="gespeeld">Minuten</option>
+          <option value="bank">Bankminuten</option>
+          <option value="aanwezig">Aanwezig</option>
           <option value="naam">Naam</option>
         </select>
       </div>
@@ -65,30 +66,31 @@ export default function Seizoen() {
       ) : (
         <>
           <p className="sub">{aantalWedstrijden} definitieve wedstrijd{aantalWedstrijden === 1 ? '' : 'en'}.</p>
-          <div className="tabelwrap">
-            <table className="tabel">
-              <thead>
-                <tr><th>Speler</th><th>Aanw</th><th>Afw</th><th>Gebl</th><th>Min</th><th>Bank</th><th>Gem</th></tr>
-              </thead>
-              <tbody>
-                {gesorteerd.map((r) => (
-                  <tr key={r.player_id}>
-                    <td>{r.naam}</td>
-                    <td>{r.aanwezig}</td>
-                    <td>{r.afwezig}</td>
-                    <td>{r.geblesseerd}</td>
-                    <td>{r.minuten_gespeeld}</td>
-                    <td>{r.minuten_bank}</td>
-                    <td>{r.aanwezig ? Math.round(r.minuten_gespeeld / r.aanwezig) : '-'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ul className="lijst">
+            {gesorteerd.map((r) => {
+              const gem = r.aanwezig ? Math.round(r.minuten_gespeeld / r.aanwezig) : null
+              const delen = [`${r.aanwezig} aanwezig`]
+              if (r.afwezig) delen.push(`${r.afwezig} afwezig`)
+              if (r.geblesseerd) delen.push(`${r.geblesseerd} geblesseerd`)
+              return (
+                <li key={r.player_id} className="aanw seizoenrij">
+                  <span className="speler">
+                    <span className="avatar" style={avatarStijl(r.naam)}>{initialen(r.naam)}</span>
+                    <span className="blok">
+                      <span>{r.naam}</span>
+                      <span className="sub regelsub">{delen.join(' · ')}</span>
+                    </span>
+                  </span>
+                  <span className="rechts">
+                    <span className="groot-getal">{r.minuten_gespeeld}'</span>
+                    <span className="sub klein-regel">bank {r.minuten_bank}'{gem !== null ? ` · gem. ${gem}'` : ''}</span>
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
           <p className="sub">
-            Aanw = aanwezig, Afw = afwezig, Gebl = geblesseerd, Min = gespeelde minuten, Bank = minuten op de bank,
-            Gem = gemiddeld aantal gespeelde minuten per aanwezige wedstrijd. Spelers die niet zijn opgegeven tellen
-            nergens mee.
+            Het grote getal zijn de gespeelde minuten. Spelers die niet zijn opgegeven tellen nergens mee.
           </p>
         </>
       )}

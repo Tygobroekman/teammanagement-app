@@ -307,13 +307,13 @@ export default function Opstelling() {
           })}
         </div>
       )}
-      <p className="sub">De minuten bij een speler zijn zijn totale speeltijd in beide helften.</p>
+      <p className="sub">De minuten achter een naam zijn de totale speeltijd in beide helften.</p>
 
       {fout && <p className="fout">{fout}</p>}
       <div className="form opslaan">
         <button disabled={bezig} onClick={opslaan}>{bezig ? 'Opslaan...' : 'Opslaan'}</button>
         <p className="sub">
-          Opgeslagen: {h1.size} van {slots.length} in de 1e helft, {h2.size} van {slots.length} in de 2e helft.
+          Nu ingevuld: {h1.size} van {slots.length} in de 1e helft, {h2.size} van {slots.length} in de 2e helft.
           Verschillen tussen de helften worden wissels in de rust ({rust}').
         </p>
       </div>
