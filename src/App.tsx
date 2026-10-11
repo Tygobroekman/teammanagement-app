@@ -5,11 +5,11 @@ import Login from './pages/Login'
 import Layout from './components/Layout'
 import Spelers from './pages/Spelers'
 import SpelerForm from './pages/SpelerForm'
-import Binnenkort from './pages/Binnenkort'
 import Wedstrijden from './pages/Wedstrijden'
 import MatchForm from './pages/MatchForm'
 import Wedstrijd from './pages/Wedstrijd'
 import Wissels from './pages/Wissels'
+import Seizoen from './pages/Seizoen'
 
 function Inhoud() {
   const { loading, session, isCaptain, signOut } = useAuth()
@@ -46,7 +46,7 @@ function Inhoud() {
         <Route path="/wedstrijden/:id" element={<Wedstrijd />} />
         <Route path="/wedstrijden/:id/wissels" element={<Wissels />} />
         <Route path="/wedstrijden/:id/bewerken" element={<MatchForm />} />
-        <Route path="/seizoen" element={<Binnenkort titel="Seizoen" />} />
+        <Route path="/seizoen" element={<Seizoen />} />
         <Route path="*" element={<Navigate to="/spelers" replace />} />
       </Route>
     </Routes>
