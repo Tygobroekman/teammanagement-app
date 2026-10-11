@@ -14,6 +14,7 @@ export default function SpelerForm() {
   const [voet, setVoet] = useState<Voet>('rechts')
   const [notities, setNotities] = useState('')
   const [actief, setActief] = useState(true)
+  const [langdurig, setLangdurig] = useState(false)
   const [niveaus, setNiveaus] = useState<Record<string, number>>({})
   const [laden, setLaden] = useState(true)
   const [bezig, setBezig] = useState(false)
@@ -36,6 +37,7 @@ export default function SpelerForm() {
         setVoet(p.voorkeursvoet)
         setNotities(p.notities ?? '')
         setActief(p.actief)
+        setLangdurig(p.langdurig_geblesseerd)
         const n: Record<string, number> = {}
         for (const r of pp.data as PlayerPosition[]) n[r.position_code] = r.niveau
         setNiveaus(n)
@@ -55,6 +57,7 @@ export default function SpelerForm() {
       voorkeursvoet: voet,
       notities: notities.trim() || null,
       actief,
+      langdurig_geblesseerd: langdurig,
     }
     const res = id
       ? await supabase.from('players').update(rij).eq('id', id).select('id').single()
@@ -135,6 +138,11 @@ export default function SpelerForm() {
       <label className="regel">
         <input type="checkbox" checked={actief} onChange={(e) => setActief(e.target.checked)} />
         Actief in de selectie
+      </label>
+
+      <label className="regel">
+        <input type="checkbox" checked={langdurig} onChange={(e) => setLangdurig(e.target.checked)} />
+        Langdurig geblesseerd (staat bij nieuwe wedstrijden standaard op geblesseerd)
       </label>
 
       {fout && <p className="fout">{fout}</p>}

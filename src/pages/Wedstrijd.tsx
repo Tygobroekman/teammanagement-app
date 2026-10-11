@@ -125,6 +125,25 @@ export default function Wedstrijd() {
         .sort((a, b) => (niveauVoor(b.id, gekozen.position_code) ?? 0) - (niveauVoor(a.id, gekozen.position_code) ?? 0))
     : []
 
+  const aanwRij = (s: Player) => (
+    <li key={s.id} className="aanw">
+      <span className={s.actief ? '' : 'inactief'}>{s.naam}</span>
+      <div className="keuze compact">
+        {STATUSSEN.map((st) => (
+          <button
+            key={st.waarde}
+            type="button"
+            className={`${statusVan(s.id) === st.waarde ? 'actief ' : ''}${st.waarde}`}
+            onClick={() => zetStatus(s.id, st.waarde)}
+            aria-label={`${s.naam} ${st.label}`}
+          >
+            {['✓', '✗', '+'][STATUSSEN.indexOf(st)]}
+          </button>
+        ))}
+      </div>
+    </li>
+  )
+
   return (
     <>
       <div className="rij">
@@ -142,26 +161,13 @@ export default function Wedstrijd() {
       <Link to={`/wedstrijden/${id}/voorstel`} className="knop breed-knop grijsknop">Opstelling voorstellen</Link>
 
       <h2>Aanwezigheid ({aanwezig.length} aanwezig)</h2>
-      <ul className="lijst">
-        {zichtbaar.map((s) => (
-          <li key={s.id} className="aanw">
-            <span className={s.actief ? '' : 'inactief'}>{s.naam}</span>
-            <div className="keuze compact">
-              {STATUSSEN.map((st) => (
-                <button
-                  key={st.waarde}
-                  type="button"
-                  className={`${statusVan(s.id) === st.waarde ? 'actief ' : ''}${st.waarde}`}
-                  onClick={() => zetStatus(s.id, st.waarde)}
-                  aria-label={`${s.naam} ${st.label}`}
-                >
-                  {['✓','✗','+'][STATUSSEN.indexOf(st)]}
-                </button>
-              ))}
-            </div>
-          </li>
-        ))}
-      </ul>
+      <ul className="lijst">{zichtbaar.filter((s) => !s.langdurig_geblesseerd).map(aanwRij)}</ul>
+      {zichtbaar.some((s) => s.langdurig_geblesseerd) && (
+        <>
+          <h3>Langdurig geblesseerd</h3>
+          <ul className="lijst">{zichtbaar.filter((s) => s.langdurig_geblesseerd).map(aanwRij)}</ul>
+        </>
+      )}
       <p className="sub">Vinkje = aanwezig, kruisje = afwezig, plus = geblesseerd. Tik nogmaals om te wissen.</p>
 
       <h2>Opstelling</h2>

@@ -23,7 +23,20 @@ export default function Spelers() {
   if (!spelers) return <p>Laden...</p>
 
   const zichtbaar = spelers.filter((s) => s.actief || toonInactief)
+  const gewoon = zichtbaar.filter((s) => !s.langdurig_geblesseerd)
+  const blessure = zichtbaar.filter((s) => s.langdurig_geblesseerd)
   const aantalActief = spelers.filter((s) => s.actief).length
+
+  const rij = (s: Player) => (
+    <li key={s.id}>
+      <Link to={`/spelers/${s.id}`} className={s.actief ? '' : 'inactief'}>
+        <span>{s.naam}</span>
+        <span className="sub">
+          {s.voorkeurspositie ?? ''} {s.actief ? '' : '(inactief)'}
+        </span>
+      </Link>
+    </li>
+  )
 
   return (
     <>
@@ -36,18 +49,13 @@ export default function Spelers() {
         Toon ook inactieve spelers
       </label>
       {zichtbaar.length === 0 && <p>Nog geen spelers. Voeg de eerste toe.</p>}
-      <ul className="lijst">
-        {zichtbaar.map((s) => (
-          <li key={s.id}>
-            <Link to={`/spelers/${s.id}`} className={s.actief ? '' : 'inactief'}>
-              <span>{s.naam}</span>
-              <span className="sub">
-                {s.voorkeurspositie ?? ''} {s.actief ? '' : '(inactief)'}
-              </span>
-            </Link>
-          </li>
-        ))}
-      </ul>
+      <ul className="lijst">{gewoon.map(rij)}</ul>
+      {blessure.length > 0 && (
+        <>
+          <h2>Langdurig geblesseerd ({blessure.length})</h2>
+          <ul className="lijst">{blessure.map(rij)}</ul>
+        </>
+      )}
     </>
   )
 }

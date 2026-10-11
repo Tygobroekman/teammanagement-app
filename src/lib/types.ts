@@ -9,6 +9,7 @@ export type Player = {
   voorkeursvoet: Voet
   notities: string | null
   actief: boolean
+  langdurig_geblesseerd: boolean
 }
 
 export type PlayerPosition = { player_id: string; position_code: string; niveau: number }

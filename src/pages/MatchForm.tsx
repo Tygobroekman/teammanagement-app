@@ -63,8 +63,15 @@ export default function MatchForm() {
     }
     if (!currentId) { setBezig(false); return setFout('Geen seizoen gevonden.') }
     const { data, error } = await supabase.from('matches').insert({ ...rij, season_id: currentId }).select('id').single()
+    if (error) { setBezig(false); return setFout('Opslaan mislukt.') }
+    // Langdurig geblesseerde spelers staan standaard op geblesseerd.
+    const lang = await supabase.from('players').select('id').eq('actief', true).eq('langdurig_geblesseerd', true)
+    if (!lang.error && lang.data.length > 0) {
+      await supabase.from('attendance').insert(
+        lang.data.map((p) => ({ match_id: data.id, player_id: p.id as string, status: 'geblesseerd' })),
+      )
+    }
     setBezig(false)
-    if (error) return setFout('Opslaan mislukt.')
     navigate(`/wedstrijden/${data.id}`)
   }
 
