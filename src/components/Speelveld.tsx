@@ -12,6 +12,7 @@ type Props = {
 }
 
 // Voetbalveld met lijnen. Boven is het doel van de tegenstander, onder ons eigen doel.
+// Spelers staan als tekst op het veld met een cirkel voor de positie.
 export default function Speelveld({ slots, veld, veld2, naam, badge, geselecteerd, onTik }: Props) {
   return (
     <div className="veld">
@@ -39,33 +40,20 @@ export default function Speelveld({ slots, veld, veld2, naam, badge, geselecteer
       </svg>
       {slots.map((s) => {
         const pid = veld.get(s.slot)
-        if (veld2) {
-          const pid2 = veld2.get(s.slot)
-          const gewijzigd = pid !== pid2
-          const inhoud = (
-            <>
-              <span className="shirt">{s.position_code}</span>
-              <span className="n1">{pid ? naam(pid) : '+'}</span>
-              {gewijzigd && <span className="n2">{pid2 ? `→ ${naam(pid2)}` : '→ ?'}</span>}
-            </>
-          )
-          const k = `plek samen ${gewijzigd ? 'wissel' : ''} ${geselecteerd === s.slot ? 'gekozen' : ''}`
-          const st = { left: `${s.x}%`, top: `${s.y}%` }
-          return onTik ? (
-            <button key={s.slot} type="button" className={k} style={st} onClick={() => onTik(s.slot)}>{inhoud}</button>
-          ) : (
-            <div key={s.slot} className={`${k} statisch`} style={st}>{inhoud}</div>
-          )
-        }
+        const pid2 = veld2?.get(s.slot)
+        const gewijzigd = veld2 !== undefined && pid !== pid2
         const b = badge?.(s, pid)
         const inhoud = (
           <>
-            <span className="pos">{s.position_code}</span>
-            <span className="nm">{pid ? naam(pid) : '+'}</span>
-            {b && <span className="badge">{b}</span>}
+            <span className="cirkel">
+              <span className="shirt">{s.position_code}</span>
+              {b && <span className="badge">{b}</span>}
+            </span>
+            <span className="n1">{pid ? naam(pid) : '+'}</span>
+            {gewijzigd && <span className="n2">{pid2 ? `→ ${naam(pid2)}` : '→ ?'}</span>}
           </>
         )
-        const klasse = `plek ${pid ? 'gevuld' : ''} ${geselecteerd === s.slot ? 'gekozen' : ''}`
+        const klasse = `plek ${pid ? '' : 'leeg'} ${gewijzigd ? 'wissel' : ''} ${geselecteerd === s.slot ? 'gekozen' : ''}`
         const stijl = { left: `${s.x}%`, top: `${s.y}%` }
         return onTik ? (
           <button key={s.slot} type="button" className={klasse} style={stijl} onClick={() => onTik(s.slot)}>

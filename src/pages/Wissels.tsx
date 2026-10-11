@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { geldigeWissels as geldig, speelminuten, veldNu } from '../lib/minuten'
+import Speelveld from '../components/Speelveld'
 import type {
   Attendance, FormationSlot, LineupSlot, Match, Player, PlayerPosition, Substitution,
 } from '../lib/types'
@@ -129,23 +130,7 @@ export default function Wissels() {
             </div>
           </div>
           <p className="sub">Het veld toont de stand op deze minuut. Tik op de speler die eruit ging.</p>
-          <div className="veld">
-            {slots.map((s) => {
-              const pid = veld.get(s.slot)
-              return (
-                <button
-                  key={s.slot}
-                  type="button"
-                  className={`plek gevuld ${uit === s.slot ? 'gekozen' : ''}`}
-                  style={{ left: `${s.x}%`, top: `${s.y}%` }}
-                  onClick={() => setUit(s.slot)}
-                >
-                  <span className="pos">{s.position_code}</span>
-                  <span className="nm">{pid ? naam(pid) : '-'}</span>
-                </button>
-              )
-            })}
-          </div>
+          <Speelveld slots={slots} veld={veld} naam={naam} geselecteerd={uit} onTik={setUit} />
         </>
       )}
 
