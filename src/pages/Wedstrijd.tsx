@@ -21,6 +21,7 @@ export default function Wedstrijd() {
   const [niveaus, setNiveaus] = useState<PlayerPosition[]>([])
   const [aanw, setAanw] = useState<Attendance[]>([])
   const [basis, setBasis] = useState<LineupSlot[]>([])
+  const [aantalWissels, setAantalWissels] = useState(0)
   const [kiesSlot, setKiesSlot] = useState<number | null>(null)
   const [fout, setFout] = useState<string | null>(null)
 
@@ -29,15 +30,16 @@ export default function Wedstrijd() {
     const m = await supabase.from('matches').select('*').eq('id', id).single()
     if (m.error) return setFout('Wedstrijd niet gevonden.')
     const wedstrijd = m.data as Match
-    const [fm, fs, pl, pp, at, lu] = await Promise.all([
+    const [fm, fs, pl, pp, at, lu, sb] = await Promise.all([
       supabase.from('formations').select('*').order('code'),
       supabase.from('formation_slots').select('*').eq('formation_code', wedstrijd.formation_code).order('slot'),
       supabase.from('players').select('*').order('naam'),
       supabase.from('player_positions').select('*'),
       supabase.from('attendance').select('*').eq('match_id', id),
       supabase.from('lineup_slots').select('*').eq('match_id', id),
+      supabase.from('substitutions').select('id', { count: 'exact', head: true }).eq('match_id', id),
     ])
-    if ([fm, fs, pl, pp, at, lu].some((r) => r.error)) return setFout('Laden mislukt.')
+    if ([fm, fs, pl, pp, at, lu, sb].some((r) => r.error)) return setFout('Laden mislukt.')
     setMatch(wedstrijd)
     setFormaties(fm.data as Formation[])
     setSlots(fs.data as FormationSlot[])
@@ -45,6 +47,7 @@ export default function Wedstrijd() {
     setNiveaus(pp.data as PlayerPosition[])
     setAanw(at.data as Attendance[])
     setBasis(lu.data as LineupSlot[])
+    setAantalWissels(sb.count ?? 0)
     setFout(null)
   }, [id])
 
@@ -135,6 +138,8 @@ export default function Wedstrijd() {
         <Link to={`/wedstrijden/${id}/bewerken`} className="link klein">Bewerken</Link>
       </div>
 
+      <Link to={`/wedstrijden/${id}/wissels`} className="knop breed-knop">Naar het wisselscherm</Link>
+
       <h2>Aanwezigheid ({aanwezig.length} aanwezig)</h2>
       <ul className="lijst">
         {zichtbaar.map((s) => (
@@ -166,6 +171,9 @@ export default function Wedstrijd() {
         </select>
       </label>
       <p className="sub">{basis.length} van 11 ingevuld. Tik op een plek om een speler te kiezen.</p>
+      {aantalWissels > 0 && (
+        <p className="fout">Er zijn al wissels geregistreerd. Verander de basisopstelling alleen als je ook de wissels aanpast.</p>
+      )}
       <div className="veld">
         {slots.map((s) => {
           const b = basis.find((x) => x.slot === s.slot)
