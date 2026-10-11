@@ -139,6 +139,7 @@ export default function Wedstrijd() {
       </div>
 
       <Link to={`/wedstrijden/${id}/wissels`} className="knop breed-knop">Wissels invoeren</Link>
+      <Link to={`/wedstrijden/${id}/voorstel`} className="knop breed-knop grijsknop">Opstelling voorstellen</Link>
 
       <h2>Aanwezigheid ({aanwezig.length} aanwezig)</h2>
       <ul className="lijst">

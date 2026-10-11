@@ -10,7 +10,7 @@ Wat de app doet (fase 1)
 - Wissels achteraf invoeren met minuut, met controle op onmogelijke wissels
 - Seizoensoverzicht: aanwezigheid, speel- en bankminuten per speler (alleen definitieve wedstrijden)
 
-Fase 2 (nog niet gebouwd): opstellingsgenerator met een schuif tussen sterkste opstelling en eerlijke speeltijd.
+Opstellingsgenerator (fase 2): stelt een basis en wisselplan voor met een schuif tussen sterkste opstelling en eerlijke speeltijd. De rekenlogica staat in src/lib/generator.ts en draait in de browser.
 
 Lokaal draaien
 1. Installeer Node.js (brew install node)
