@@ -35,6 +35,37 @@ export default function Wedstrijden() {
 
   if (!seasons) return <p>Laden...</p>
 
+  // Een wedstrijd telt tot drie uur na de aftrap nog als komend.
+  const grens = Date.now() - 3 * 60 * 60 * 1000
+  const komend = (wedstrijden ?? []).filter((m) => new Date(m.aanvang).getTime() >= grens)
+    .sort((a, b) => a.aanvang.localeCompare(b.aanvang))
+  const eerder = (wedstrijden ?? []).filter((m) => new Date(m.aanvang).getTime() < grens)
+    .sort((a, b) => b.aanvang.localeCompare(a.aanvang))
+
+  const lijst = (rijen: Match[]) => (
+    <ul className="lijst">
+      {rijen.map((m) => {
+        const d = datumBlok(m.aanvang)
+        const gespeeld = m.doelpunten_voor !== null && m.doelpunten_tegen !== null
+        return (
+          <li key={m.id}>
+            <Link to={`/wedstrijden/${m.id}`} className="wk">
+              <span className="datum"><b>{d.dag}</b><small>{d.maand}</small></span>
+              <span className="tekst">
+                <strong>{m.thuis_uit === 'thuis' ? 'Thuis' : 'Uit'} tegen {m.tegenstander}</strong>
+                <span className="sub">{d.tijd}</span>
+              </span>
+              <span className="rechts">
+                {gespeeld && <span className="uitslagtekst">{m.doelpunten_voor} - {m.doelpunten_tegen}</span>}
+                <span className={`pil ${m.status}`}>{m.status}</span>
+              </span>
+            </Link>
+          </li>
+        )
+      })}
+    </ul>
+  )
+
   if (seasons.length === 0 || nieuwSeizoen) {
     return (
       <div className="form">
@@ -66,27 +97,26 @@ export default function Wedstrijden() {
       </div>
       {fout && <p className="fout">{fout}</p>}
       {!wedstrijden ? <p>Laden...</p> : wedstrijden.length === 0 ? <p className="leeg-staat">Nog geen wedstrijden dit seizoen.</p> : (
-        <ul className="lijst">
-          {wedstrijden.map((m) => {
-            const d = datumBlok(m.aanvang)
-            const gespeeld = m.doelpunten_voor !== null && m.doelpunten_tegen !== null
-            return (
-              <li key={m.id}>
-                <Link to={`/wedstrijden/${m.id}`} className="wk">
-                  <span className="datum"><b>{d.dag}</b><small>{d.maand}</small></span>
-                  <span className="tekst">
-                    <strong>{m.thuis_uit === 'thuis' ? 'Thuis' : 'Uit'} tegen {m.tegenstander}</strong>
-                    <span className="sub">{d.tijd}</span>
-                  </span>
-                  <span className="rechts">
-                    {gespeeld && <span className="uitslagtekst">{m.doelpunten_voor} - {m.doelpunten_tegen}</span>}
-                    <span className={`pil ${m.status}`}>{m.status}</span>
-                  </span>
-                </Link>
-              </li>
-            )
-          })}
-        </ul>
+        <>
+          {komend.length > 0 && (
+            <>
+              <h2>Volgende wedstrijd</h2>
+              {lijst(komend.slice(0, 1))}
+            </>
+          )}
+          {komend.length > 1 && (
+            <>
+              <h2>Komende wedstrijden ({komend.length - 1})</h2>
+              {lijst(komend.slice(1))}
+            </>
+          )}
+          {eerder.length > 0 && (
+            <>
+              <h2>Eerder ({eerder.length})</h2>
+              {lijst(eerder)}
+            </>
+          )}
+        </>
       )}
     </>
   )

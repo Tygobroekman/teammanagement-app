@@ -28,13 +28,13 @@ export default function Layout() {
       </div>
       <nav className="tabbar">
         <div className="tabbar-in">
-          <NavLink to="/spelers">
-            <Icoon><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" /></Icoon>
-            Spelers
-          </NavLink>
           <NavLink to="/wedstrijden">
             <Icoon><rect x="3" y="4" width="18" height="18" rx="3" /><path d="M16 2v4M8 2v4M3 10h18" /></Icoon>
             Wedstrijden
+          </NavLink>
+          <NavLink to="/spelers">
+            <Icoon><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" /></Icoon>
+            Spelers
           </NavLink>
           <NavLink to="/seizoen">
             <Icoon><path d="M18 20V10M12 20V4M6 20v-6" /></Icoon>

@@ -49,7 +49,7 @@ function Inhoud() {
         <Route path="/wedstrijden/:id/wissels" element={<Wissels />} />
         <Route path="/wedstrijden/:id/bewerken" element={<MatchForm />} />
         <Route path="/seizoen" element={<Seizoen />} />
-        <Route path="*" element={<Navigate to="/spelers" replace />} />
+        <Route path="*" element={<Navigate to="/wedstrijden" replace />} />
       </Route>
     </Routes>
   )
