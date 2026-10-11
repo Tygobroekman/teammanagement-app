@@ -323,14 +323,27 @@ export default function Wedstrijd() {
           <button className="breed-knop-b" disabled={!klaarOk || bezig} onClick={() => zetMatchStatus('klaar')}>
             Wedstrijd klaar maken
           </button>
+          {!klaarOk && (
+            <>
+              <p className="sub">Is de wedstrijd al gespeeld en heb je geen opstelling gemaakt?</p>
+              <button
+                className="grijsknop breed-knop-b"
+                disabled={bezig}
+                onClick={() => window.confirm('Opstelling overslaan en direct naar bankminuten en uitslag?') && zetMatchStatus('klaar')}
+              >
+                Opstelling overslaan, wedstrijd is al gespeeld
+              </button>
+            </>
+          )}
         </>
       )}
 
       {status === 'klaar' && (
         <>
           <p className="banner">
-            De opstelling staat klaar. Na de wedstrijd controleer je de bankminuten, vul je de uitslag in en sla je de
-            wedstrijd definitief op.
+            {basis.length === 0
+              ? 'Deze wedstrijd heeft geen opstelling. Vul de bankminuten en de uitslag in en sla de wedstrijd definitief op.'
+              : 'De opstelling staat klaar. Na de wedstrijd controleer je de bankminuten, vul je de uitslag in en sla je de wedstrijd definitief op.'}
           </p>
           {opstellingen}
           <p><strong>Aanwezig ({aantalAanwezig}):</strong> {namen('aanwezig')}</p>
