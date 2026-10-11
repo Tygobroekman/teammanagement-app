@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useSeasons } from '../lib/useSeasons'
+import { useBevestig } from '../components/Bevestig'
 import { naarInput, standaardAanvang } from '../lib/format'
 import type { Formation, Match } from '../lib/types'
 
@@ -9,6 +10,7 @@ export default function MatchForm() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { currentId } = useSeasons()
+  const { vraag, dialoog } = useBevestig()
 
   const [formaties, setFormaties] = useState<Formation[]>([])
   const [aanvang, setAanvang] = useState(standaardAanvang())
@@ -73,7 +75,7 @@ export default function MatchForm() {
   }
 
   async function verwijder() {
-    if (!id || !window.confirm('Deze wedstrijd met opstelling, aanwezigheid en wissels definitief verwijderen?')) return
+    if (!id || !(await vraag('Deze wedstrijd met opstelling, aanwezigheid en wissels definitief verwijderen?'))) return
     const { error } = await supabase.from('matches').delete().eq('id', id)
     if (error) return setFout('Verwijderen mislukt.')
     navigate('/wedstrijden')
@@ -128,6 +130,7 @@ export default function MatchForm() {
       <button disabled={bezig}>{bezig ? 'Opslaan...' : 'Opslaan'}</button>
       <button type="button" className="link" onClick={() => navigate(id ? `/wedstrijden/${id}` : '/wedstrijden')}>Annuleren</button>
       {id && <button type="button" className="link gevaar" onClick={verwijder}>Wedstrijd verwijderen</button>}
+      {dialoog}
     </form>
   )
 }

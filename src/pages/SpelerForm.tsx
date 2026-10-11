@@ -1,12 +1,14 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useBevestig } from '../components/Bevestig'
 import type { Player, PlayerPosition, Position, Voet } from '../lib/types'
 
 export default function SpelerForm() {
   const { id } = useParams()
   const nieuw = !id
   const navigate = useNavigate()
+  const { vraag, dialoog } = useBevestig()
 
   const [posities, setPosities] = useState<Position[]>([])
   const [naam, setNaam] = useState('')
@@ -81,7 +83,7 @@ export default function SpelerForm() {
   }
 
   async function verwijder() {
-    if (!id || !window.confirm(`${naam} definitief verwijderen? Dit kan niet ongedaan worden gemaakt.`)) return
+    if (!id || !(await vraag(`${naam} definitief verwijderen? Dit kan niet ongedaan worden gemaakt.`))) return
     setFout(null)
     const { error } = await supabase.from('players').delete().eq('id', id)
     if (error) {
@@ -164,6 +166,7 @@ export default function SpelerForm() {
       <button disabled={bezig}>{bezig ? 'Opslaan...' : 'Opslaan'}</button>
       <button type="button" className="link" onClick={() => navigate('/spelers')}>Annuleren</button>
       {!nieuw && <button type="button" className="link gevaar" onClick={verwijder}>Speler verwijderen</button>}
+      {dialoog}
     </form>
   )
 }

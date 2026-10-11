@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { genereer, type GenSpeler } from '../lib/generator'
 import { veldNu } from '../lib/minuten'
 import Speelveld from '../components/Speelveld'
+import { useBevestig } from '../components/Bevestig'
 import type {
   Attendance, Formation, FormationSlot, LineupSlot, Match, Player, PlayerPosition, Substitution,
 } from '../lib/types'
@@ -16,6 +17,7 @@ type SeizoenRij = { player_id: string; aanwezig: number; minuten_gespeeld: numbe
 export default function Opstelling() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { vraag, dialoog } = useBevestig()
 
   const [match, setMatch] = useState<Match | null>(null)
   const [formaties, setFormaties] = useState<Formation[]>([])
@@ -148,8 +150,8 @@ export default function Opstelling() {
     setSel(null)
   }
 
-  function maakVoorstel() {
-    if (h1.size > 0 && !window.confirm('De huidige opstelling wordt vervangen door het voorstel. Doorgaan?')) return
+  async function maakVoorstel() {
+    if (h1.size > 0 && !(await vraag('De huidige opstelling wordt vervangen door het voorstel. Doorgaan?'))) return
     const v = genereer({
       spelers: genSpelers,
       slots: slots.map((s) => ({ slot: s.slot, position_code: s.position_code })),
@@ -170,8 +172,8 @@ export default function Opstelling() {
   async function opslaan() {
     const vol1 = h1.size === slots.length
     const vol2 = h2.size === slots.length
-    if (h2Eigen && !vol2 && !window.confirm('De 2e helft is nog niet compleet. Dan worden de rustwissels niet opgeslagen. Doorgaan?')) return
-    if (bestaandeWissels > 0 && !window.confirm('Bestaande wissels worden vervangen door de wissels uit deze opstelling. Doorgaan?')) return
+    if (h2Eigen && !vol2 && !(await vraag('De 2e helft is nog niet compleet. Dan worden de rustwissels niet opgeslagen. Doorgaan?'))) return
+    if (bestaandeWissels > 0 && !(await vraag('Bestaande wissels worden vervangen door de wissels uit deze opstelling. Doorgaan?'))) return
     setBezig(true)
     setFout(null)
     const posVan = (slot: number) => slots.find((s) => s.slot === slot)?.position_code ?? ''
@@ -317,6 +319,7 @@ export default function Opstelling() {
           Verschillen tussen de helften worden wissels in de rust ({rust}').
         </p>
       </div>
+      {dialoog}
     </>
   )
 }

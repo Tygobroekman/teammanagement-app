@@ -203,3 +203,5 @@ legend { font-weight: 700; font-size: 13px; text-transform: uppercase; letter-sp
 .bankinvoer { display: flex; align-items: center; gap: 8px; flex: none; }
 .bankinvoer input { width: 92px; text-align: center; font-size: 20px; font-weight: 800; min-height: 46px; padding: 6px 8px; color: var(--groen-donker); }
 .bankinvoer span { width: 26px; }
+
+.vraagtekst { white-space: pre-line; font-size: 17px; margin: 4px 0 16px; }

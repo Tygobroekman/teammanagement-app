@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { avatarStijl, datumTijd, initialen } from '../lib/format'
 import { speelminuten, veldNu } from '../lib/minuten'
 import Speelveld from '../components/Speelveld'
+import { useBevestig } from '../components/Bevestig'
 import type {
   AttStatus, Attendance, FormationSlot, LineupSlot, Match, MatchStatus, Player, Substitution,
 } from '../lib/types'
@@ -31,6 +32,7 @@ export default function Wedstrijd() {
   const [voor, setVoor] = useState('')
   const [tegen, setTegen] = useState('')
   const [bezig, setBezig] = useState(false)
+  const { vraag, dialoog } = useBevestig()
   const [bankWaarden, setBankWaarden] = useState<Record<string, string>>({})
   const [melding, setMelding] = useState<string | null>(null)
   const [fout, setFout] = useState<string | null>(null)
@@ -147,7 +149,7 @@ export default function Wedstrijd() {
     const { fout: f, rijen } = bankRijen()
     if (f) return setFout(f)
     const som = rijen.reduce((a, r) => a + r.minuten_bank, 0)
-    if (!window.confirm(`Totaal ${som} bankminuten voor ${rijen.length} aanwezige spelers.\n\nWedstrijd definitief opslaan?`)) return
+    if (!(await vraag(`Totaal ${som} bankminuten voor ${rijen.length} aanwezige spelers.\n\nWedstrijd definitief opslaan?`))) return
     setFout(null)
     if (!(await slaBankOp(false))) return
     await zetMatchStatus('definitief', { doelpunten_voor: Number(voor), doelpunten_tegen: Number(tegen) })
@@ -250,8 +252,8 @@ export default function Wedstrijd() {
         </ul>
       )}
       <p className="sub">
-        Totaal {bankSom} minuten. Bij {deelnemers.length} aanwezigen is dat {bankVerwacht} als er steeds {slots.length} spelers
-        op het veld stonden.
+        Totaal {bankSom} minuten. Bij {deelnemers.length} aanwezigen is dat normaal {bankVerwacht}. Een hoger totaal klopt
+        als er andere spelers (bijvoorbeeld leenspelers) hebben meegespeeld.
       </p>
       {fout && <p className="fout">{fout}</p>}
       <button className="grijsknop breed-knop-b" disabled={bezig} onClick={() => slaBankOp()}>Bankminuten opslaan</button>
@@ -330,7 +332,7 @@ export default function Wedstrijd() {
               <button
                 className="grijsknop breed-knop-b"
                 disabled={bezig}
-                onClick={() => window.confirm('Opstelling overslaan en direct naar bankminuten en uitslag?') && zetMatchStatus('klaar')}
+                onClick={async () => (await vraag('Opstelling overslaan en direct naar bankminuten en uitslag?')) && zetMatchStatus('klaar')}
               >
                 Opstelling overslaan, wedstrijd is al gespeeld
               </button>
@@ -371,11 +373,12 @@ export default function Wedstrijd() {
           {opstellingen}
           {wissels.length > 0 && handmatig.size === 0 && wisselLijst}
           {speeltijd}
-          <button className="link" onClick={() => window.confirm('Wedstrijd heropenen om bankminuten of uitslag aan te passen?') && zetMatchStatus('klaar')}>
+          <button className="link" onClick={async () => (await vraag('Wedstrijd heropenen om bankminuten of uitslag aan te passen?')) && zetMatchStatus('klaar')}>
             Heropenen om aan te passen
           </button>
         </>
       )}
+      {dialoog}
     </>
   )
 }
