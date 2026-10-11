@@ -15,3 +15,26 @@ button { font-size: 16px; padding: 12px 16px; border: 0; border-radius: 8px; bac
 button:disabled { opacity: .6; }
 button.link { background: none; color: var(--groen); text-decoration: underline; }
 .fout { color: #b00020; }
+.shell { min-height: 100dvh; padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+.topbar { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; background: var(--groen); color: #fff; }
+.topbar .link { color: #fff; min-height: 0; padding: 4px 0; }
+.tabbar { position: fixed; bottom: 0; left: 0; right: 0; display: flex; background: #fff; border-top: 1px solid #d5ddd8; padding-bottom: env(safe-area-inset-bottom); }
+.tabbar a { flex: 1; text-align: center; padding: 16px 0; color: #55665c; text-decoration: none; font-weight: 600; }
+.tabbar a.active { color: var(--groen); box-shadow: inset 0 3px 0 var(--groen); }
+.rij { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.rij h1 { margin: 12px 0; font-size: 22px; }
+.knop { background: var(--groen); color: #fff; padding: 12px 16px; border-radius: 8px; text-decoration: none; font-weight: 600; }
+.lijst { list-style: none; margin: 8px 0; padding: 0; }
+.lijst a { display: flex; justify-content: space-between; align-items: center; padding: 14px 4px; border-bottom: 1px solid #dfe5e1; color: inherit; text-decoration: none; min-height: 48px; }
+.lijst .inactief { color: #8a968f; }
+.sub { color: #6b7a71; font-size: 14px; }
+.regel { display: flex; align-items: center; gap: 10px; font-weight: 500; }
+.regel .breed { flex: 1; }
+select, textarea { font-size: 16px; padding: 10px; border: 1px solid #b9c4bd; border-radius: 8px; background: #fff; }
+fieldset { border: 1px solid #dfe5e1; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+legend { font-weight: 600; padding: 0 6px; }
+.keuze { display: flex; gap: 8px; }
+.keuze button { flex: 1; background: #e7ece9; color: var(--tekst); }
+.keuze button.actief { background: var(--groen); color: #fff; }
+input[type=checkbox] { width: 22px; height: 22px; }
+.klein { font-size: 14px; }
