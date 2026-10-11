@@ -57,6 +57,7 @@ h2 { font-size: 18px; margin: 24px 0 8px; }
 .sheet .leeg { background: #e7ece9; color: #b00020; width: 100%; margin: 8px 0; }
 .breed-knop { display: block; text-align: center; margin-top: 12px; padding: 16px; font-size: 18px; }
 .klok { background: #14201a; color: #fff; border-radius: 12px; padding: 12px; margin: 8px 0; text-align: center; }
+.klok .sub-licht { font-size: 13px; opacity: .7; }
 .klok .tijd { font-size: 52px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: 2px; }
 .klokknoppen { display: flex; gap: 8px; justify-content: center; margin-top: 8px; }
 .klokknoppen button { min-height: 52px; flex: 1; font-size: 17px; }
