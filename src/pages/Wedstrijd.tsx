@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { avatarStijl, datumTijd, initialen } from '../lib/format'
 import { speelminuten, veldNu } from '../lib/minuten'
 import Speelveld from '../components/Speelveld'
+import RustOverzicht from '../components/RustOverzicht'
 import { useBevestig } from '../components/Bevestig'
 import type {
   AttStatus, Attendance, FormationSlot, LineupSlot, Match, MatchStatus, Player, Position, Substitution,
@@ -274,12 +275,12 @@ export default function Wedstrijd() {
         <p className="sub">Nog geen opstelling gemaakt.</p>
       ) : (
         <>
-          <h3>{rustWissels.length ? '1e helft' : 'Opstelling'}</h3>
-          <Speelveld slots={slots} veld={basisMap} naam={naam} />
+          <Speelveld slots={slots} veld={basisMap} veld2={rustWissels.length > 0 ? tweedeHelft : undefined} naam={naam} />
           {rustWissels.length > 0 && (
             <>
-              <h3>2e helft</h3>
-              <Speelveld slots={slots} veld={tweedeHelft} naam={naam} />
+              <p className="sub">Vet is de 1e helft, cursief met pijl is de 2e helft.</p>
+              <h3>In de rust</h3>
+              <RustOverzicht h1={basisMap} h2={tweedeHelft} slots={slots} naam={naam} />
             </>
           )}
         </>

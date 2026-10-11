@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { genereer, type GenSpeler } from '../lib/generator'
 import { veldNu } from '../lib/minuten'
 import Speelveld from '../components/Speelveld'
+import RustOverzicht from '../components/RustOverzicht'
 import { useBevestig } from '../components/Bevestig'
 import type {
   Attendance, Formation, FormationSlot, LineupSlot, Match, Player, PlayerPosition, Substitution,
@@ -30,7 +31,7 @@ export default function Opstelling() {
   const [bestaandeWissels, setBestaandeWissels] = useState(0)
   const [h1, setH1] = useState<Map<number, string>>(new Map())
   const [h2Eigen, setH2Eigen] = useState<Map<number, string> | null>(null)
-  const [helft, setHelft] = useState<1 | 2>(1)
+  const [helft, setHelft] = useState<1 | 2 | 'samen'>(1)
   const [sel, setSel] = useState<Selectie>(null)
   const [voorstelOpen, setVoorstelOpen] = useState(false)
   const [meldingen, setMeldingen] = useState<string[]>([])
@@ -69,7 +70,7 @@ export default function Opstelling() {
       setBestaandeWissels(wissels.length)
       const rust = Math.round(wedstrijd.duur_minuten / 2)
       const rustWissels = wissels.filter((w) => w.minuut === rust)
-      if (rustWissels.length) setH2Eigen(veldNu(basis, rustWissels))
+      if (rustWissels.length) { setH2Eigen(veldNu(basis, rustWissels)); setHelft('samen') }
     })()
   }, [id])
 
@@ -92,7 +93,7 @@ export default function Opstelling() {
   const duur = match.duur_minuten
   const rust = Math.round(duur / 2)
   const h2 = h2Eigen ?? h1
-  const actief = helft === 1 ? h1 : h2
+  const actief = helft === 2 ? h2 : h1
   const naam = (pid: string) => spelers.find((s) => s.id === pid)?.naam ?? '?'
   const niveauVoor = (pid: string, pos: string) => niveaus.find((n) => n.player_id === pid && n.position_code === pos)?.niveau
   const bank = genSpelers.filter((g) => ![...actief.values()].includes(g.id))
@@ -103,6 +104,12 @@ export default function Opstelling() {
   function zetActief(m: Map<number, string>) {
     if (helft === 1) setH1(m)
     else setH2Eigen(m)
+  }
+
+  // Vanuit de Samen-weergave: tik op een plek om die in de 2e helft aan te passen.
+  function tikSamen(slot: number) {
+    setHelft(2)
+    setSel({ soort: 'slot', slot })
   }
 
   function tikSlot(slot: number) {
@@ -164,7 +171,7 @@ export default function Opstelling() {
     const basis = new Map(v.basis.map((b) => [b.slot, b.player_id]))
     setH1(basis)
     setH2Eigen(veldNu(basis, v.wissels))
-    setHelft(1)
+    setHelft('samen')
     setSel(null)
     setVoorstelOpen(false)
     setFout(null)
@@ -230,6 +237,9 @@ export default function Opstelling() {
         <button type="button" className={helft === 2 ? 'actief' : ''} onClick={() => { setHelft(2); setSel(null) }}>
           2e helft
         </button>
+        <button type="button" className={helft === 'samen' ? 'actief' : ''} onClick={() => { setHelft('samen'); setSel(null) }}>
+          Samen
+        </button>
       </div>
 
       <div className="regel opties">
@@ -272,6 +282,20 @@ export default function Opstelling() {
         </div>
       )}
 
+      {helft === 'samen' && (
+        <>
+          <p className="sub hint">Vet is de 1e helft, cursief met pijl is de 2e helft. Tik op een plek om die in de 2e helft aan te passen.</p>
+          <Speelveld slots={slots} veld={h1} veld2={h2} naam={naam} onTik={tikSamen} />
+          <h2>In de rust</h2>
+          <RustOverzicht h1={h1} h2={h2} slots={slots} naam={naam} />
+          <h2>Bank</h2>
+          <p><strong>1e helft:</strong> {genSpelers.filter((g) => ![...h1.values()].includes(g.id)).map((g) => g.naam).join(', ') || 'niemand'}</p>
+          <p><strong>2e helft:</strong> {genSpelers.filter((g) => ![...h2.values()].includes(g.id)).map((g) => g.naam).join(', ') || 'niemand'}</p>
+        </>
+      )}
+
+      {helft !== 'samen' && (
+      <>
       <p className="sub hint">
         {sel?.soort === 'slot'
           ? 'Tik op een andere plek om te wisselen, of op een speler van de bank.'
@@ -326,6 +350,8 @@ export default function Opstelling() {
         </div>
       )}
       <p className="sub">De minuten achter een naam zijn de totale speeltijd in beide helften.</p>
+      </>
+      )}
 
       {fout && <p className="fout">{fout}</p>}
       <div className="form opslaan">

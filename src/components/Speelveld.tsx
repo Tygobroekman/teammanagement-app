@@ -3,6 +3,8 @@ import type { FormationSlot } from '../lib/types'
 type Props = {
   slots: FormationSlot[]
   veld: Map<number, string>
+  // Als dit is meegegeven, toont elke plek de speler van de 1e helft en daaronder (cursief) die van de 2e helft.
+  veld2?: Map<number, string>
   naam: (pid: string) => string
   badge?: (slot: FormationSlot, pid: string | undefined) => string | undefined
   geselecteerd?: number | null
@@ -10,7 +12,7 @@ type Props = {
 }
 
 // Voetbalveld met lijnen. Boven is het doel van de tegenstander, onder ons eigen doel.
-export default function Speelveld({ slots, veld, naam, badge, geselecteerd, onTik }: Props) {
+export default function Speelveld({ slots, veld, veld2, naam, badge, geselecteerd, onTik }: Props) {
   return (
     <div className="veld">
       <svg className="lijnen" viewBox="0 0 300 400" preserveAspectRatio="none" aria-hidden="true">
@@ -37,6 +39,24 @@ export default function Speelveld({ slots, veld, naam, badge, geselecteerd, onTi
       </svg>
       {slots.map((s) => {
         const pid = veld.get(s.slot)
+        if (veld2) {
+          const pid2 = veld2.get(s.slot)
+          const gewijzigd = pid !== pid2
+          const inhoud = (
+            <>
+              <span className="shirt">{s.position_code}</span>
+              <span className="n1">{pid ? naam(pid) : '+'}</span>
+              {gewijzigd && <span className="n2">{pid2 ? `→ ${naam(pid2)}` : '→ ?'}</span>}
+            </>
+          )
+          const k = `plek samen ${gewijzigd ? 'wissel' : ''} ${geselecteerd === s.slot ? 'gekozen' : ''}`
+          const st = { left: `${s.x}%`, top: `${s.y}%` }
+          return onTik ? (
+            <button key={s.slot} type="button" className={k} style={st} onClick={() => onTik(s.slot)}>{inhoud}</button>
+          ) : (
+            <div key={s.slot} className={`${k} statisch`} style={st}>{inhoud}</div>
+          )
+        }
         const b = badge?.(s, pid)
         const inhoud = (
           <>
