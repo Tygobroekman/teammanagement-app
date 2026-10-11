@@ -18,7 +18,7 @@ export type Season = { id: string; naam: string; created_at: string }
 export type Formation = { code: string; naam: string }
 export type FormationSlot = { formation_code: string; slot: number; position_code: string; x: number; y: number }
 export type AttStatus = 'aanwezig' | 'afwezig' | 'geblesseerd'
-export type MatchStatus = 'concept' | 'definitief'
+export type MatchStatus = 'concept' | 'klaar' | 'definitief'
 
 export type Match = {
   id: string

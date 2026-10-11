@@ -76,7 +76,7 @@ export default function Wedstrijden() {
                 </span>
                 <span className="sub">
                   {m.doelpunten_voor !== null && m.doelpunten_tegen !== null ? `${m.doelpunten_voor} - ${m.doelpunten_tegen} ` : ''}
-                  {m.status === 'concept' ? 'concept' : 'definitief'}
+                  {m.status}
                 </span>
               </Link>
             </li>

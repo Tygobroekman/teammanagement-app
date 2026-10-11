@@ -1,25 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { speelminuten, veldNu } from '../lib/minuten'
+import { geldigeWissels as geldig, speelminuten, veldNu } from '../lib/minuten'
 import type {
   Attendance, FormationSlot, LineupSlot, Match, Player, PlayerPosition, Substitution,
 } from '../lib/types'
 
 // Wissels achteraf invoeren: kies de minuut, tik de speler die eruit ging en kies wie erin kwam.
-type Plan = { minuut: number; player_in: string; player_out: string; slot: number; id: number }
-
-function geldig(basis: Map<number, string>, lijst: Plan[]) {
-  const veld = new Map(basis)
-  const gesorteerd = [...lijst].sort((a, b) => a.minuut - b.minuut || a.id - b.id)
-  for (const w of gesorteerd) {
-    if (veld.get(w.slot) !== w.player_out) return false
-    if ([...veld.values()].includes(w.player_in)) return false
-    veld.set(w.slot, w.player_in)
-  }
-  return true
-}
-
 export default function Wissels() {
   const { id } = useParams()
   const [match, setMatch] = useState<Match | null>(null)
@@ -92,7 +79,7 @@ export default function Wissels() {
     const spelerUit = veld.get(slot)
     const def = slots.find((s) => s.slot === slot)
     if (!spelerUit || !def || minuut === null) return
-    const kandidaat: Plan = { minuut, player_in: spelerIn, player_out: spelerUit, slot, id: Infinity }
+    const kandidaat = { minuut, player_in: spelerIn, player_out: spelerUit, slot, id: Infinity }
     if (!geldig(basisMap, [...wissels, kandidaat])) {
       setUit(null)
       return setFout('Deze wissel past niet bij de latere wissels. Verwijder eerst de wissels die daarna komen.')

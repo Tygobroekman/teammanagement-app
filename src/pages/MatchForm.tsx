@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useSeasons } from '../lib/useSeasons'
 import { naarInput, standaardAanvang } from '../lib/format'
-import type { Formation, Match, MatchStatus } from '../lib/types'
+import type { Formation, Match } from '../lib/types'
 
 export default function MatchForm() {
   const { id } = useParams()
@@ -18,7 +18,6 @@ export default function MatchForm() {
   const [duur, setDuur] = useState(90)
   const [voor, setVoor] = useState('')
   const [tegen, setTegen] = useState('')
-  const [status, setStatus] = useState<MatchStatus>('concept')
   const [laden, setLaden] = useState(Boolean(id))
   const [bezig, setBezig] = useState(false)
   const [fout, setFout] = useState<string | null>(null)
@@ -36,7 +35,6 @@ export default function MatchForm() {
       setDuur(m.duur_minuten)
       setVoor(m.doelpunten_voor?.toString() ?? '')
       setTegen(m.doelpunten_tegen?.toString() ?? '')
-      setStatus(m.status)
       setLaden(false)
     })
   }, [id])
@@ -53,7 +51,6 @@ export default function MatchForm() {
       duur_minuten: duur,
       doelpunten_voor: voor === '' ? null : Number(voor),
       doelpunten_tegen: tegen === '' ? null : Number(tegen),
-      status,
     }
     if (id) {
       const { error } = await supabase.from('matches').update(rij).eq('id', id)
@@ -124,17 +121,6 @@ export default function MatchForm() {
               <span>-</span>
               <input type="number" inputMode="numeric" min={0} value={tegen} onChange={(e) => setTegen(e.target.value)} />
             </div>
-          </fieldset>
-          <fieldset>
-            <legend>Status</legend>
-            <div className="keuze">
-              {(['concept', 'definitief'] as const).map((s) => (
-                <button type="button" key={s} className={status === s ? 'actief' : ''} onClick={() => setStatus(s)}>
-                  {s === 'concept' ? 'Concept' : 'Definitief'}
-                </button>
-              ))}
-            </div>
-            <p className="sub">Alleen definitieve wedstrijden tellen mee in het seizoensoverzicht.</p>
           </fieldset>
         </>
       )}

@@ -46,11 +46,12 @@ h2 { font-size: 18px; margin: 24px 0 8px; }
 .keuze.compact button.aanwezig.actief { background: #1b8a4b; }
 .keuze.compact button.afwezig.actief { background: #8a96a0; }
 .keuze.compact button.geblesseerd.actief { background: #c0392b; }
-.veld { position: relative; width: 100%; aspect-ratio: 3 / 4; max-height: 70vh; margin: 8px 0; background: linear-gradient(#2e8b57, #267347); border-radius: 12px; border: 2px solid #fff; outline: 2px solid #1f6b43; }
+.veld { position: relative; width: 100%; aspect-ratio: 3 / 4; max-height: 72vh; margin: 8px auto; border-radius: 12px; overflow: hidden; background: repeating-linear-gradient(to bottom, #2e8b57 0, #2e8b57 12.5%, #2a8050 12.5%, #2a8050 25%); }
+.veld .lijnen { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .plek { position: absolute; transform: translate(-50%, -50%); width: 68px; min-height: 52px; padding: 4px; border-radius: 10px; background: rgba(255,255,255,.25); color: #fff; border: 2px dashed #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; font-size: 13px; line-height: 1.15; }
 .plek.gevuld { background: #fff; color: var(--tekst); border: 2px solid var(--groen); }
 .plek .pos { font-size: 10px; opacity: .75; }
-.plek .nm { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; }
+.plek .nm { max-width: 100%; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; text-align: center; word-break: break-word; font-weight: 700; }
 .sheet-bg { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: flex-end; z-index: 10; }
 .sheet { background: #fff; width: 100%; max-height: 75vh; overflow-y: auto; padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); border-radius: 16px 16px 0 0; }
 .sheet .lijst a { cursor: pointer; }
@@ -77,3 +78,34 @@ h2 { font-size: 18px; margin: 24px 0 8px; }
 input[type=range] { width: 100%; height: 44px; accent-color: var(--groen); padding: 0; }
 .plek.statisch { cursor: default; }
 h3 { font-size: 15px; color: #6b7a71; margin: 20px 0 4px; }
+
+.plek { z-index: 1; }
+.plek .badge { position: absolute; top: -7px; right: -7px; min-width: 20px; height: 20px; border-radius: 10px; background: var(--groen); color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; padding: 0 4px; }
+.plek:not(.gevuld) .nm { font-size: 20px; }
+.tabs { margin: 4px 0 8px; }
+.tabs button { min-height: 48px; font-size: 17px; }
+.opties { gap: 8px; }
+.opties select { flex: 1; min-height: 48px; }
+.kleinknop { flex: none; min-height: 48px; }
+.hint { min-height: 20px; margin: 4px 0; }
+.kopje h2 { margin: 16px 0 8px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { background: #fff; color: var(--tekst); border: 2px solid #d5ddd8; display: flex; flex-direction: column; align-items: center; gap: 0; padding: 6px 12px; min-height: 52px; line-height: 1.2; }
+.chip.gekozen { border-color: #ffb300; background: #fff6dd; }
+.chip.nul { border-style: dashed; border-color: #c0392b; }
+.opslaan { margin-top: 16px; }
+.stappen { list-style: none; display: flex; gap: 4px; padding: 0; margin: 8px 0 12px; font-size: 13px; }
+.stappen li { flex: 1; text-align: center; padding: 8px 4px; border-radius: 8px; background: #e7ece9; color: #6b7a71; }
+.stappen li.nu { background: var(--groen); color: #fff; font-weight: 700; }
+.stappen li.af { background: #cfe6d8; color: #1b5e3a; }
+.stappen .nr { font-weight: 700; margin-right: 2px; }
+.banner { background: #fff6dd; border: 1px solid #f0d48a; border-radius: 8px; padding: 10px 12px; }
+.banner.ok { background: #e3f3e8; border-color: #b4dcc2; }
+.check { list-style: none; padding: 0; margin: 4px 0 12px; }
+.check li { padding: 4px 0 4px 28px; position: relative; color: #6b7a71; }
+.check li::before { content: "○"; position: absolute; left: 4px; }
+.check li.ok { color: var(--tekst); }
+.check li.ok::before { content: "✓"; color: #1b8a4b; font-weight: 700; }
+.breed-knop-b { width: 100%; min-height: 52px; font-size: 18px; }
+.uitslag input { width: 84px; text-align: center; font-size: 24px; }
+.uitslag span { font-size: 24px; }
