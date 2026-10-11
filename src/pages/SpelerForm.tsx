@@ -80,6 +80,21 @@ export default function SpelerForm() {
     navigate('/spelers')
   }
 
+  async function verwijder() {
+    if (!id || !window.confirm(`${naam} definitief verwijderen? Dit kan niet ongedaan worden gemaakt.`)) return
+    setFout(null)
+    const { error } = await supabase.from('players').delete().eq('id', id)
+    if (error) {
+      // 23503 = er verwijzen nog wedstrijdgegevens naar deze speler
+      return setFout(
+        error.code === '23503'
+          ? 'Deze speler heeft wedstrijdgeschiedenis en kan niet worden verwijderd. Zet hem op inactief, dan blijft de geschiedenis kloppen.'
+          : 'Verwijderen mislukt.',
+      )
+    }
+    navigate('/spelers')
+  }
+
   if (laden && !fout) return <p>Laden...</p>
 
   return (
@@ -148,6 +163,7 @@ export default function SpelerForm() {
       {fout && <p className="fout">{fout}</p>}
       <button disabled={bezig}>{bezig ? 'Opslaan...' : 'Opslaan'}</button>
       <button type="button" className="link" onClick={() => navigate('/spelers')}>Annuleren</button>
+      {!nieuw && <button type="button" className="link gevaar" onClick={verwijder}>Speler verwijderen</button>}
     </form>
   )
 }
