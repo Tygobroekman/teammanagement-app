@@ -31,6 +31,8 @@ export default function Wedstrijd() {
   const [voor, setVoor] = useState('')
   const [tegen, setTegen] = useState('')
   const [bezig, setBezig] = useState(false)
+  const [bankWaarden, setBankWaarden] = useState<Record<string, string>>({})
+  const [melding, setMelding] = useState<string | null>(null)
   const [fout, setFout] = useState<string | null>(null)
 
   const laad = useCallback(async () => {
@@ -89,7 +91,7 @@ export default function Wedstrijd() {
     const huidig = statusVan(pid)
     const doel = huidig === nieuw ? null : nieuw
     const res = doel
-      ? await supabase.from('attendance').upsert({ match_id: id, player_id: pid, status: doel })
+      ? await supabase.from('attendance').upsert({ match_id: id, player_id: pid, status: doel, ...(doel !== 'aanwezig' ? { minuten_bank: null } : {}) })
       : await supabase.from('attendance').delete().eq('match_id', id).eq('player_id', pid)
     if (res.error) return setFout('Opslaan mislukt.')
     if (doel !== 'aanwezig') {
@@ -108,13 +110,46 @@ export default function Wedstrijd() {
     await laad()
   }
 
+  // Bankminuten: vooraf ingevuld uit de opstelling, daarna vrij aan te passen.
+  const bankWaarde = (pid: string) => bankWaarden[pid] ?? String(duur - gespeeldVan(pid))
+
+  function bankRijen() {
+    const rijen: { match_id: string; player_id: string; status: 'aanwezig'; minuten_bank: number }[] = []
+    for (const pid of deelnemers) {
+      const w = bankWaarde(pid).trim()
+      if (!/^\d+$/.test(w) || Number(w) > duur) {
+        return { fout: `Vul bij ${naam(pid)} een getal tussen 0 en ${duur} in.`, rijen }
+      }
+      rijen.push({ match_id: id!, player_id: pid, status: 'aanwezig', minuten_bank: Number(w) })
+    }
+    return { fout: null, rijen }
+  }
+
+  async function slaBankOp(toonMelding = true): Promise<boolean> {
+    const { fout: f, rijen } = bankRijen()
+    if (f) { setFout(f); return false }
+    if (rijen.length) {
+      const { error } = await supabase.from('attendance').upsert(rijen)
+      if (error) { setFout('Bankminuten opslaan mislukt.'); return false }
+    }
+    setBankWaarden({})
+    setFout(null)
+    await laad()
+    if (toonMelding) {
+      setMelding('Bankminuten opgeslagen.')
+      setTimeout(() => setMelding(null), 3000)
+    }
+    return true
+  }
+
   async function definitief() {
     if (voor === '' || tegen === '') return setFout('Vul eerst de uitslag in.')
-    const opmerking = wissels.length === 0
-      ? 'Er zijn geen wissels ingevoerd. Klopt dat?\n\n'
-      : `Er zijn ${wissels.length} wissel(s) geregistreerd. Kloppen die met de wedstrijd?\n\n`
-    if (!window.confirm(`${opmerking}Wedstrijd definitief opslaan?`)) return
+    const { fout: f, rijen } = bankRijen()
+    if (f) return setFout(f)
+    const som = rijen.reduce((a, r) => a + r.minuten_bank, 0)
+    if (!window.confirm(`Totaal ${som} bankminuten voor ${rijen.length} aanwezige spelers.\n\nWedstrijd definitief opslaan?`)) return
     setFout(null)
+    if (!(await slaBankOp(false))) return
     await zetMatchStatus('definitief', { doelpunten_voor: Number(voor), doelpunten_tegen: Number(tegen) })
   }
 
@@ -175,6 +210,51 @@ export default function Wedstrijd() {
           ))}
         </ul>
       )}
+    </>
+  )
+
+  const bankSom = deelnemers.reduce((a, pid) => a + (Number(bankWaarde(pid)) || 0), 0)
+  const bankVerwacht = Math.max(0, deelnemers.length - slots.length) * duur
+
+  const bankLijst = (
+    <>
+      <h2>Bankminuten</h2>
+      <p className="sub">
+        Hoeveel minuten heeft iedereen op de bank gezeten? De getallen komen uit de opstelling. Pas aan wat er
+        echt is gebeurd.
+      </p>
+      {deelnemers.length === 0 ? (
+        <p className="leeg-staat">Geen aanwezige spelers.</p>
+      ) : (
+        <ul className="lijst">
+          {[...deelnemers].sort((a, b) => naam(a).localeCompare(naam(b), 'nl')).map((pid) => (
+            <li key={pid} className="aanw">
+              <span className="speler">
+                <span className="avatar" style={avatarStijl(naam(pid))}>{initialen(naam(pid))}</span>
+                <span>{naam(pid)}</span>
+              </span>
+              <span className="bankinvoer">
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={duur}
+                  value={bankWaarde(pid)}
+                  onChange={(e) => setBankWaarden({ ...bankWaarden, [pid]: e.target.value })}
+                  aria-label={`Bankminuten ${naam(pid)}`}
+                />
+                <span className="sub">min</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="sub">
+        Totaal {bankSom} minuten. Bij {deelnemers.length} aanwezigen is dat {bankVerwacht} als er steeds {slots.length} spelers
+        op het veld stonden.
+      </p>
+      <button className="grijsknop breed-knop-b" disabled={bezig} onClick={() => slaBankOp()}>Bankminuten opslaan</button>
+      {melding && <p className="banner ok">{melding}</p>}
     </>
   )
 
@@ -249,16 +329,14 @@ export default function Wedstrijd() {
       {status === 'klaar' && (
         <>
           <p className="banner">
-            De opstelling staat klaar. Na de wedstrijd controleer je de wissels, vul je de uitslag in en sla je de
+            De opstelling staat klaar. Na de wedstrijd controleer je de bankminuten, vul je de uitslag in en sla je de
             wedstrijd definitief op.
           </p>
           {opstellingen}
           <p><strong>Aanwezig ({aantalAanwezig}):</strong> {namen('aanwezig')}</p>
           <p className="sub">Afwezig: {namen('afwezig')}. Geblesseerd: {namen('geblesseerd')}.</p>
 
-          {wisselLijst}
-          <Link to={`/wedstrijden/${id}/wissels`} className="knop breed-knop">Wissels controleren of invoeren</Link>
-          {speeltijd}
+          {bankLijst}
 
           <h2>Uitslag</h2>
           <div className="regel uitslag">
@@ -276,9 +354,9 @@ export default function Wedstrijd() {
         <>
           <p className="banner ok">Deze wedstrijd is definitief opgeslagen en telt mee in het seizoensoverzicht.</p>
           {opstellingen}
-          {wisselLijst}
+          {wissels.length > 0 && handmatig.size === 0 && wisselLijst}
           {speeltijd}
-          <button className="link" onClick={() => window.confirm('Wedstrijd heropenen om wissels of uitslag aan te passen?') && zetMatchStatus('klaar')}>
+          <button className="link" onClick={() => window.confirm('Wedstrijd heropenen om bankminuten of uitslag aan te passen?') && zetMatchStatus('klaar')}>
             Heropenen om aan te passen
           </button>
         </>
