@@ -38,3 +38,20 @@ legend { font-weight: 600; padding: 0 6px; }
 .keuze button.actief { background: var(--groen); color: #fff; }
 input[type=checkbox] { width: 22px; height: 22px; }
 .klein { font-size: 14px; }
+h2 { font-size: 18px; margin: 24px 0 8px; }
+.gevaar { color: #b00020; }
+.lijst li.aanw { display: flex; justify-content: space-between; align-items: center; padding: 8px 4px; border-bottom: 1px solid #dfe5e1; }
+.keuze.compact { flex: none; }
+.keuze.compact button { flex: none; width: 48px; min-height: 44px; padding: 0; font-size: 20px; }
+.keuze.compact button.aanwezig.actief { background: #1b8a4b; }
+.keuze.compact button.afwezig.actief { background: #8a96a0; }
+.keuze.compact button.geblesseerd.actief { background: #c0392b; }
+.veld { position: relative; width: 100%; aspect-ratio: 3 / 4; max-height: 70vh; margin: 8px 0; background: linear-gradient(#2e8b57, #267347); border-radius: 12px; border: 2px solid #fff; outline: 2px solid #1f6b43; }
+.plek { position: absolute; transform: translate(-50%, -50%); width: 68px; min-height: 52px; padding: 4px; border-radius: 10px; background: rgba(255,255,255,.25); color: #fff; border: 2px dashed #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; font-size: 13px; line-height: 1.15; }
+.plek.gevuld { background: #fff; color: var(--tekst); border: 2px solid var(--groen); }
+.plek .pos { font-size: 10px; opacity: .75; }
+.plek .nm { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; }
+.sheet-bg { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: flex-end; z-index: 10; }
+.sheet { background: #fff; width: 100%; max-height: 75vh; overflow-y: auto; padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); border-radius: 16px 16px 0 0; }
+.sheet .lijst a { cursor: pointer; }
+.sheet .leeg { background: #e7ece9; color: #b00020; width: 100%; margin: 8px 0; }
