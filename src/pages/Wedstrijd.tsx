@@ -76,6 +76,9 @@ export default function Wedstrijd() {
   const aantalAanwezig = aanwezig.length
   const klaarOk = aantalAanwezig >= slots.length && basis.length === slots.length
   const totaal = speelminuten(basis.map((b) => b.player_id), wissels, duur)
+  // Bij oude wedstrijden zonder opstelling staan de bankminuten rechtstreeks bij de aanwezigheid.
+  const handmatig = new Map(aanw.filter((a) => a.minuten_bank !== null).map((a) => [a.player_id, a.minuten_bank as number]))
+  const gespeeldVan = (pid: string) => (handmatig.has(pid) ? duur - handmatig.get(pid)! : totaal.get(pid) ?? 0)
   const deelnemers = [...new Set([
     ...aanwezig.map((s) => s.id),
     ...basis.map((b) => b.player_id),
@@ -179,10 +182,10 @@ export default function Wedstrijd() {
     <>
       <h2>Speeltijd</h2>
       <ul className="lijst">
-        {[...deelnemers].sort((a, b) => (totaal.get(b) ?? 0) - (totaal.get(a) ?? 0)).map((pid) => (
+        {[...deelnemers].sort((a, b) => gespeeldVan(b) - gespeeldVan(a)).map((pid) => (
           <li key={pid} className="aanw">
             <span>{naam(pid)}</span>
-            <span className="sub">{totaal.get(pid) ?? 0}' gespeeld · {duur - (totaal.get(pid) ?? 0)}' bank</span>
+            <span className="sub">{gespeeldVan(pid)}' gespeeld · {duur - gespeeldVan(pid)}' bank</span>
           </li>
         ))}
       </ul>

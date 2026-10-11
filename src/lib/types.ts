@@ -33,7 +33,7 @@ export type Match = {
   duur_minuten: number
 }
 
-export type Attendance = { match_id: string; player_id: string; status: AttStatus }
+export type Attendance = { match_id: string; player_id: string; status: AttStatus; minuten_bank: number | null }
 export type LineupSlot = { match_id: string; slot: number; player_id: string; position_code: string }
 
 export type Substitution = {
