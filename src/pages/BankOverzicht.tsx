@@ -1,6 +1,6 @@
-import { avatarStijl, initialen } from '../lib/format'
 import { useBankGeschiedenis } from '../lib/bankgeschiedenis'
-import { BankLegenda, BankStippen, datumKort } from '../components/BankStippen'
+import { BankLegenda, datumKort } from '../components/BankStippen'
+import BankRij from '../components/BankRij'
 
 // Hoe vaak heeft iemand op de bank gezeten, en wanneer. Telt alleen definitieve wedstrijden.
 export default function BankOverzicht({ seasonId }: { seasonId: string }) {
@@ -24,25 +24,9 @@ export default function BankOverzicht({ seasonId }: { seasonId: string }) {
         meest rechtse is de laatste wedstrijd.
       </p>
       <ul className="lijst">
-        {rijen.map((r) => (
-          <li key={r.id} className="aanw seizoenrij">
-            <span className="speler">
-              <span className="avatar" style={avatarStijl(r.naam)}>{initialen(r.naam)}</span>
-              <span className="blok">
-                <span className="naamregel">
-                  <span>{r.naam}</span>
-                  {r.vorigeBank && <span className="chipje geel">vorige keer bank</span>}
-                </span>
-                <BankStippen staten={r.staten} />
-              </span>
-            </span>
-            <span className="rechts">
-              <span className="groot-getal">{r.keren}x</span>
-              <span className="sub klein-regel">van {r.aanwezig} aanwezig</span>
-            </span>
-          </li>
-        ))}
+        {rijen.map((r) => <BankRij key={r.id} r={r} aanwezigTekst={`van ${r.aanwezig} aanwezig`} />)}
       </ul>
+      <p className="sub">Tik op een speler om per wedstrijd de bankminuten te zien.</p>
       <BankLegenda />
       <p className="sub">
         "Op de bank" betekent: aanwezig met meer dan 0 bankminuten in die wedstrijd. Leenspelers staan er niet in.

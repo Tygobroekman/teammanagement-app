@@ -3,7 +3,7 @@ import { supabase } from './supabase'
 
 export type Staat = 'gespeeld' | 'deels' | 'bank' | 'afwezig' | 'geblesseerd' | 'onbekend'
 export type WedstrijdKort = { id: string; aanvang: string; tegenstander: string }
-export type BankStaat = { w: WedstrijdKort; staat: Staat; bank: number }
+export type BankStaat = { w: WedstrijdKort; staat: Staat; bank: number; duur: number }
 export type SpelerBank = {
   id: string
   naam: string
@@ -37,10 +37,10 @@ export async function laadBankGeschiedenis(seasonId: string): Promise<Geschieden
       const x = minuten.find((r) => r.match_id === w.id && r.player_id === sp.id)
       if (x) {
         const staat: Staat = x.minuten_bank <= 0 ? 'gespeeld' : x.minuten_bank >= x.duur_minuten ? 'bank' : 'deels'
-        return { w, staat, bank: x.minuten_bank }
+        return { w, staat, bank: x.minuten_bank, duur: x.duur_minuten }
       }
       const a = aanwezigheid.find((r) => r.match_id === w.id && r.player_id === sp.id)?.status
-      return { w, staat: a === 'afwezig' ? 'afwezig' : a === 'geblesseerd' ? 'geblesseerd' : 'onbekend', bank: 0 }
+      return { w, staat: a === 'afwezig' ? 'afwezig' : a === 'geblesseerd' ? 'geblesseerd' : 'onbekend', bank: 0, duur: 0 }
     })
     const keren = staten.filter((s) => s.staat === 'deels' || s.staat === 'bank').length
     const aanwezig = staten.filter((s) => s.staat === 'gespeeld' || s.staat === 'deels' || s.staat === 'bank').length

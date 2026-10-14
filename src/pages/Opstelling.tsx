@@ -5,7 +5,8 @@ import { genereer, type GenSpeler } from '../lib/generator'
 import { veldNu } from '../lib/minuten'
 import Speelveld from '../components/Speelveld'
 import RustOverzicht from '../components/RustOverzicht'
-import { BankLegenda, BankStippen } from '../components/BankStippen'
+import { BankLegenda } from '../components/BankStippen'
+import BankRij from '../components/BankRij'
 import { useBankGeschiedenis } from '../lib/bankgeschiedenis'
 import { avatarStijl, initialen } from '../lib/format'
 import { useBevestig } from '../components/Bevestig'
@@ -407,27 +408,10 @@ export default function Opstelling() {
               .map((g) => bankGeschiedenis.perId.get(g.id))
               .filter((r): r is NonNullable<typeof r> => r !== undefined)
               .sort((a, b) => b.keren - a.keren || b.bankMin - a.bankMin || a.naam.localeCompare(b.naam, 'nl'))
-              .map((r) => (
-                <li key={r.id} className="aanw seizoenrij">
-                  <span className="speler">
-                    <span className="avatar" style={avatarStijl(r.naam)}>{initialen(r.naam)}</span>
-                    <span className="blok">
-                      <span className="naamregel">
-                        <span>{r.naam}</span>
-                        {r.vorigeBank && <span className="chipje geel">vorige keer bank</span>}
-                      </span>
-                      <BankStippen staten={r.staten} />
-                    </span>
-                  </span>
-                  <span className="rechts">
-                    <span className="groot-getal">{r.keren}x</span>
-                    <span className="sub klein-regel">van {r.aanwezig}</span>
-                  </span>
-                </li>
-              ))}
+              .map((r) => <BankRij key={r.id} r={r} aanwezigTekst={`van ${r.aanwezig}`} />)}
           </ul>
           <BankLegenda />
-          <p className="sub">Alleen definitieve wedstrijden. De stippen lopen van oud naar nieuw.</p>
+          <p className="sub">Tik op een speler om per wedstrijd de bankminuten te zien. Alleen definitieve wedstrijden.</p>
         </details>
       )}
 
