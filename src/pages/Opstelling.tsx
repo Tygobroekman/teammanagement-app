@@ -183,21 +183,18 @@ export default function Opstelling() {
     setVoorstelOpen(false)
     setFout(null)
     // Waarschuwen voor wat het voorstel niet goed kon invullen.
-    const inBasisNu = new Set(v.basis.map((x) => x.player_id))
     const m: string[] = []
     for (const pid of v.zonderPositie) m.push(`${naam(pid)} heeft geen posities ingevuld en wordt niet ingezet.`)
     for (const b of v.buitenPositie) {
       const pos = slots.find((x) => x.slot === b.slot)?.position_code ?? ''
       m.push(`${naam(b.player_id)} staat op ${pos}, maar daar is geen niveau voor ingevuld. Er was niemand anders voor die plek.`)
     }
-    // Geen wissels terwijl er spelers op de bank zitten: leg uit waarom, anders lijkt het alsof er iets stuk is.
+    // Iedereen die kan spelen krijgt minstens een helft. Lukt dat niet, dan zeggen we wie en waarom.
+    for (const pid of v.nietIngezet) {
+      m.push(`${naam(pid)} kon niet worden ingepast: zijn posities passen niet bij de rest van de opstelling. Vul bij hem meer posities in.`)
+    }
     if (v.wissels.length === 0 && genSpelers.length > slots.length) {
-      const bankNamen = genSpelers.filter((g) => !inBasisNu.has(g.id)).map((g) => g.naam).join(', ')
-      m.push(
-        weging < 35
-          ? 'Er zijn geen wissels in de rust, omdat de schuif bij "Sterkste elf" staat. Zet de schuif naar rechts om de bank te laten meespelen.'
-          : `Er zijn geen wissels in de rust. De spelers op de bank (${bankNamen}) kunnen waarschijnlijk alleen op posities spelen waar geen wissel mogelijk is. Vul bij hen meer posities in bij Spelers, dan kan het voorstel meer wisselen.`,
-      )
+      m.push('Er zijn geen wissels in de rust, omdat de spelers op de bank op geen enkele plek kunnen staan. Vul bij hen posities in bij Spelers.')
     }
     setMeldingen(m)
     // Terugkoppeling over de voorrang voor wie vorige keer op de bank zat.
@@ -282,7 +279,7 @@ export default function Opstelling() {
             <p className="fout">Er zijn {genSpelers.length} aanwezige spelers, er zijn er {slots.length} nodig.</p>
           ) : (
             <>
-              <p className="sub">{genSpelers.length} aanwezig. Wissels alleen in de rust.</p>
+              <p className="sub">{genSpelers.length} aanwezig. Wissels alleen in de rust. Iedereen speelt minstens een helft.</p>
               <input
                 type="range" min={0} max={100} step={5} value={weging}
                 onChange={(e) => setWeging(Number(e.target.value))}

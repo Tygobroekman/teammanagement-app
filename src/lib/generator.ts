@@ -25,6 +25,8 @@ export type GenVoorstel = {
   buitenPositie: { player_id: string; slot: number }[]
   // Spelers voor wie geen enkele positie van deze formatie is opgegeven.
   zonderPositie: string[]
+  // Spelers die wel een positie hebben, maar niet konden worden ingepast zonder anderen op een verkeerde positie te zetten.
+  nietIngezet: string[]
 }
 
 const ONBEKEND_NIVEAU = 0.5
@@ -88,17 +90,19 @@ function hongaars(kosten: number[][]): number[] {
 }
 
 // Verdeelt `totaal` minuten over spelers zo dat de verhoudingen uit `ruw` behouden blijven,
-// zonder dat iemand onder 0 of boven `max` komt.
-function normaliseer(ruw: number[], totaal: number, max: number): number[] {
-  let lo = -max * 2
-  let hi = max * 2
+// zonder dat iemand onder zijn minimum of boven zijn maximum komt.
+function normaliseer(ruw: number[], totaal: number, min: number[], max: number[]): number[] {
+  const grens = Math.max(...max, 1) * 2
+  let lo = -grens
+  let hi = grens
+  const klem = (i: number, m: number) => Math.min(max[i], Math.max(min[i], ruw[i] + m))
   for (let i = 0; i < 60; i++) {
     const mid = (lo + hi) / 2
-    const som = ruw.reduce((a, r) => a + Math.min(max, Math.max(0, r + mid)), 0)
+    const som = ruw.reduce((a, _, i2) => a + klem(i2, mid), 0)
     if (som < totaal) lo = mid
     else hi = mid
   }
-  return ruw.map((r) => Math.min(max, Math.max(0, r + (lo + hi) / 2)))
+  return ruw.map((_, i) => klem(i, (lo + hi) / 2))
 }
 
 export function genereer(opts: {
@@ -113,11 +117,11 @@ export function genereer(opts: {
   const K = opts.blokken ?? 6
   if (spelers.length < slots.length) return null
 
-  // De keeper blijft staan: een vaste keeper wordt niet gewisseld met veldspelers.
+  // Is er precies een keeper, dan blijft die staan. Zijn er twee of meer, dan doen ze mee in de wisselronde
+  // zodat ook de tweede keeper speelminuten krijgt.
   const keeperSlot = slots.find((s) => s.position_code === 'GK')
-  const keeper = keeperSlot
-    ? [...spelers].filter((s) => (s.niveaus.GK ?? 0) > 0).sort((a, b) => (b.niveaus.GK ?? 0) - (a.niveaus.GK ?? 0))[0]
-    : undefined
+  const keepers = spelers.filter((s) => (s.niveaus.GK ?? 0) > 0)
+  const keeper = keeperSlot && keepers.length === 1 ? keepers[0] : undefined
   const veldSlots = keeper ? slots.filter((s) => s !== keeperSlot) : slots
   const pool = keeper ? spelers.filter((s) => s.id !== keeper.id) : spelers
   const f = veldSlots.length
@@ -145,16 +149,28 @@ export function genereer(opts: {
   const ruwEerlijk = pool.map(
     (s) => (duur * f) / P + SEIZOEN_GEWICHT * (groep - (s.seizoenGemiddeld ?? groep)) + VOORRANG_MINUTEN * duur * voorrang(s),
   )
-  const doelEerlijk = normaliseer(ruwEerlijk, duur * f, duur)
+  // Wie op geen enkele plek kan staan, krijgt geen minuten toegewezen (en wordt gemeld).
+  const kanSpelen = pool.map((sp) => veldSlots.some((sl) => kan(sp, sl.position_code)))
+  const maxMin = pool.map((_, i) => (kanSpelen[i] ? duur : 0))
+  const nul = pool.map(() => 0)
+  const doelEerlijk = normaliseer(ruwEerlijk, duur * f, nul, maxMin)
 
-  const doel = pool.map((_, i) => (1 - w) * doelSterk[i] + w * doelEerlijk[i])
+  const L = duur / K
+  const blend = pool.map((_, i) => (1 - w) * doelSterk[i] + w * doelEerlijk[i])
+  // Vaste regel: iedereen die kan spelen krijgt minstens een blok (bij twee blokken een helft). De schuif bepaalt
+  // alleen nog wie de hele wedstrijd speelt. Zo wordt er altijd gewisseld zodra er meer dan f spelers zijn.
+  const aantalSpelers = kanSpelen.filter(Boolean).length
+  const minTijd = Math.min(L, (duur * f) / Math.max(1, aantalSpelers))
+  const doel = normaliseer(blend, duur * f, pool.map((_, i) => (kanSpelen[i] ? minTijd : 0)), maxMin)
 
   // 3. Aantal blokken per speler, met grootste-restmethode zodat de som exact f * K is.
-  const L = duur / K
   const x = doel.map((d) => Math.min(K, d / L))
   const n = x.map((v) => Math.floor(v + 1e-9))
   let tekort = f * K - n.reduce((a, b) => a + b, 0)
-  const volgorde = x.map((v, i) => ({ i, rest: v - n[i] })).sort((a, b) => b.rest - a.rest)
+  // Bij gelijke resten krijgen de sterkste spelers en wie voorrang heeft het extra blok.
+  const volgorde = x
+    .map((v, i) => ({ i, rest: v - n[i] + (sterkste.has(pool[i].id) ? 1e-3 : 0) + 5e-4 * voorrang(pool[i]) }))
+    .sort((a, b) => b.rest - a.rest)
   for (const { i } of volgorde) {
     if (tekort <= 0) break
     if (n[i] < K) { n[i]++; tekort-- }
@@ -164,7 +180,66 @@ export function genereer(opts: {
   // terechtkomt zolang een ander die plek kan invullen. Doorspelers blijven op hun plek staan.
   const rest = [...n]
   const grenzen = Array.from({ length: K + 1 }, (_, b) => Math.round((b * duur) / K))
-  let vorige: Map<string, number> | undefined
+  const blokken: Map<number, number>[] = [] // per blok: slot -> index in pool
+  for (let b = 0; b < K; b++) {
+    const over = K - b
+    const vorige = blokken[b - 1]
+    const vorigeSlotVan = new Map<number, number>([...(vorige ?? [])].map(([slot, idx]) => [idx, slot]))
+    const kosten = veldSlots.map((sl) =>
+      pool.map((sp, i) => {
+        const key = rest[i] / over + (sterkste.has(sp.id) ? 0.03 : 0) + (vorigeSlotVan.has(i) ? 0.02 : 0)
+        let score = BEHOEFTE_GEWICHT * key + sterkte(sp, sl.position_code) + VOORRANG_NIVEAU * voorrang(sp)
+        if (rest[i] >= over) score += VERPLICHT_BONUS
+        if (rest[i] <= 0) score -= GEEN_RUST
+        if (vorigeSlotVan.get(i) === sl.slot) score += BLIJF_BONUS
+        if (!kan(sp, sl.position_code)) score -= ONTOEGESTAAN
+        return -score
+      }),
+    )
+    const toewijzing = new Map<number, number>()
+    hongaars(kosten).forEach((j, i) => toewijzing.set(veldSlots[i].slot, j))
+    for (const idx of toewijzing.values()) rest[idx]--
+    blokken.push(toewijzing)
+  }
+
+  // 5. Herstel: wie kan spelen maar nog geen blok heeft, neemt in een blok de plek in van iemand die minstens
+  // twee blokken speelt, zolang daardoor iedereen op een opgegeven positie blijft staan. Eerst de laatste helft:
+  // een invaller komt het liefst in de rust.
+  const speelt = (i: number) => blokken.filter((bl) => [...bl.values()].includes(i)).length
+  const herbereken = (b: number, kandidaten: number[]): Map<number, number> | null => {
+    const vorige = blokken[b - 1]
+    const kosten = veldSlots.map((sl) =>
+      kandidaten.map((i) => {
+        const sp = pool[i]
+        let score = sterkte(sp, sl.position_code) + VOORRANG_NIVEAU * voorrang(sp)
+        if (vorige?.get(sl.slot) === i) score += BLIJF_BONUS
+        if (!kan(sp, sl.position_code)) score -= ONTOEGESTAAN
+        return -score
+      }),
+    )
+    const uitkomst = new Map<number, number>()
+    for (const [r, j] of hongaars(kosten).entries()) {
+      if (!kan(pool[kandidaten[j]], veldSlots[r].position_code)) return null
+      uitkomst.set(veldSlots[r].slot, kandidaten[j])
+    }
+    return uitkomst
+  }
+  for (let u = 0; u < P; u++) {
+    if (!kanSpelen[u] || speelt(u) > 0) continue
+    let gedaan = false
+    for (let b = K - 1; b >= 0 && !gedaan; b--) {
+      const opBlok = [...blokken[b].values()]
+      const vervangbaar = opBlok
+        .filter((v) => speelt(v) >= 2)
+        .sort((a, c) => speelt(c) - speelt(a) || voorrang(pool[a]) - voorrang(pool[c]))
+      for (const v of vervangbaar) {
+        const nieuwBlok = herbereken(b, [...opBlok.filter((x) => x !== v), u])
+        if (nieuwBlok) { blokken[b] = nieuwBlok; gedaan = true; break }
+      }
+    }
+  }
+
+  // 6. Uitkomst afleiden: basis, wissels op de blokgrenzen, minuten en waarschuwingen.
   const basis: { slot: number; player_id: string }[] = []
   const wissels: GenWissel[] = []
   const minuten = new Map<string, number>()
@@ -174,42 +249,26 @@ export function genereer(opts: {
     basis.push({ slot: keeperSlot.slot, player_id: keeper.id })
     tel(keeper.id, duur)
   }
-  for (let b = 0; b < K; b++) {
-    const over = K - b
-    const kosten = veldSlots.map((sl) =>
-      pool.map((sp, i) => {
-        const key = rest[i] / over + (sterkste.has(sp.id) ? 0.03 : 0) + (vorige?.has(sp.id) ? 0.02 : 0)
-        let score = BEHOEFTE_GEWICHT * key + sterkte(sp, sl.position_code) + VOORRANG_NIVEAU * voorrang(sp)
-        if (rest[i] >= over) score += VERPLICHT_BONUS
-        if (rest[i] <= 0) score -= GEEN_RUST
-        if (vorige?.get(sp.id) === sl.slot) score += BLIJF_BONUS
-        if (!kan(sp, sl.position_code)) score -= ONTOEGESTAAN
-        return -score
-      }),
-    )
-    const toewijzing = hongaars(kosten).map((j, i) => ({ slot: veldSlots[i], speler: pool[j], idx: j }))
-    const nu = new Map(toewijzing.map((t) => [t.speler.id, t.slot.slot]))
-    for (const t of toewijzing) {
-      rest[t.idx]--
-      tel(t.speler.id, grenzen[b + 1] - grenzen[b])
-      if (!kan(t.speler, t.slot.position_code) && !buitenPositie.some((x) => x.player_id === t.speler.id && x.slot === t.slot.slot)) {
-        buitenPositie.push({ player_id: t.speler.id, slot: t.slot.slot })
+  blokken.forEach((bl, b) => {
+    for (const sl of veldSlots) {
+      const idx = bl.get(sl.slot)
+      if (idx === undefined) continue
+      const sp = pool[idx]
+      tel(sp.id, grenzen[b + 1] - grenzen[b])
+      if (!kan(sp, sl.position_code) && !buitenPositie.some((x) => x.player_id === sp.id && x.slot === sl.slot)) {
+        buitenPositie.push({ player_id: sp.id, slot: sl.slot })
       }
-    }
-    if (b === 0) {
-      toewijzing.forEach((t) => basis.push({ slot: t.slot.slot, player_id: t.speler.id }))
-    } else {
-      const wasOpSlot = new Map([...(vorige ?? [])].map(([id, slot]) => [slot, id]))
-      for (const t of toewijzing) {
-        const eruit = wasOpSlot.get(t.slot.slot)
-        if (eruit && eruit !== t.speler.id) {
-          wissels.push({ minuut: grenzen[b], slot: t.slot.slot, player_in: t.speler.id, player_out: eruit })
+      if (b === 0) basis.push({ slot: sl.slot, player_id: sp.id })
+      else {
+        const eruit = blokken[b - 1].get(sl.slot)
+        if (eruit !== undefined && eruit !== idx) {
+          wissels.push({ minuut: grenzen[b], slot: sl.slot, player_in: sp.id, player_out: pool[eruit].id })
         }
       }
     }
-    vorige = nu
-  }
+  })
   const zonderPositie = spelers.filter((sp) => !slots.some((sl) => kan(sp, sl.position_code))).map((sp) => sp.id)
+  const nietIngezet = pool.filter((sp, i) => kanSpelen[i] && (minuten.get(sp.id) ?? 0) === 0).map((sp) => sp.id)
   basis.sort((a, c) => a.slot - c.slot)
-  return { basis, wissels, minuten, buitenPositie, zonderPositie }
+  return { basis, wissels, minuten, buitenPositie, zonderPositie, nietIngezet }
 }
