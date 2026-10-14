@@ -17,12 +17,11 @@ import type {
 // De drie meest voorkomende keuzes voor het voorstel.
 const KEUZES = [
   { waarde: 0, label: 'Sterkste elf', uitleg: 'De sterkste spelers spelen de hele wedstrijd, de rest krijgt een helft.' },
-  { waarde: 50, label: 'Gemiddeld', uitleg: 'Een mix: sterke spelers en spelers die het minst speelden delen de hele wedstrijden.' },
-  { waarde: 100, label: 'Eerlijkste speeltijd', uitleg: 'Wie dit seizoen het minst speelde, speelt nu de hele wedstrijd.' },
+  { waarde: 50, label: 'Gemiddeld', uitleg: 'Een mix van de sterkste spelers en eerlijke speeltijd.' },
+  { waarde: 100, label: 'Eerlijkste speeltijd', uitleg: 'Wie vorige keer op de bank zat, begint nu. Wie de laatste wedstrijden het minst speelde, krijgt de meeste minuten.' },
 ]
 
 type Selectie = { soort: 'slot'; slot: number } | { soort: 'bank'; pid: string } | null
-type SeizoenRij = { player_id: string; aanwezig: number; minuten_gespeeld: number }
 
 // Opstelling bouwen: kies formatie, zet spelers op het veld voor de 1e en 2e helft,
 // of laat een voorstel maken en pas dat daarna met de hand aan.
@@ -38,7 +37,6 @@ export default function Opstelling() {
   const [spelers, setSpelers] = useState<Player[]>([])
   const [niveaus, setNiveaus] = useState<PlayerPosition[]>([])
   const [aanw, setAanw] = useState<Attendance[]>([])
-  const [seizoen, setSeizoen] = useState<SeizoenRij[]>([])
   const [bestaandeWissels, setBestaandeWissels] = useState(0)
   const [h1, setH1] = useState<Map<number, string>>(new Map())
   const [h2Eigen, setH2Eigen] = useState<Map<number, string> | null>(null)
@@ -49,7 +47,7 @@ export default function Opstelling() {
   const [voorrangInfo, setVoorrangInfo] = useState<string | null>(null)
   const [keeperWisselen, setKeeperWisselen] = useState(false)
   const [keeperInfo, setKeeperInfo] = useState<string | null>(null)
-  const [weging, setWeging] = useState(50)
+  const [weging, setWeging] = useState(100)
   const [bezig, setBezig] = useState(false)
   const [fout, setFout] = useState<string | null>(null)
 
@@ -59,7 +57,7 @@ export default function Opstelling() {
       const m = await supabase.from('matches').select('*').eq('id', id).single()
       if (m.error) return setFout('Wedstrijd niet gevonden.')
       const wedstrijd = m.data as Match
-      const [fm, fs, pl, pp, at, lu, sb, so] = await Promise.all([
+      const [fm, fs, pl, pp, at, lu, sb] = await Promise.all([
         supabase.from('formations').select('*').order('code'),
         supabase.from('formation_slots').select('*').eq('formation_code', wedstrijd.formation_code).order('slot'),
         supabase.from('players').select('*').order('naam'),
@@ -67,9 +65,8 @@ export default function Opstelling() {
         supabase.from('attendance').select('*').eq('match_id', id),
         supabase.from('lineup_slots').select('*').eq('match_id', id),
         supabase.from('substitutions').select('*').eq('match_id', id),
-        supabase.from('season_overview').select('player_id, aanwezig, minuten_gespeeld').eq('season_id', wedstrijd.season_id),
       ])
-      if ([fm, fs, pl, pp, at, lu, sb, so].some((r) => r.error)) return setFout('Laden mislukt.')
+      if ([fm, fs, pl, pp, at, lu, sb].some((r) => r.error)) return setFout('Laden mislukt.')
       setMatch(wedstrijd)
       setFormaties(fm.data as Formation[])
       setFormatie(wedstrijd.formation_code)
@@ -77,7 +74,6 @@ export default function Opstelling() {
       setSpelers(pl.data as Player[])
       setNiveaus(pp.data as PlayerPosition[])
       setAanw(at.data as Attendance[])
-      setSeizoen(so.data as SeizoenRij[])
       const basis = new Map((lu.data as LineupSlot[]).map((b) => [b.slot, b.player_id]))
       setH1(basis)
       const wissels = sb.data as Substitution[]
@@ -93,16 +89,15 @@ export default function Opstelling() {
   const genSpelers: GenSpeler[] = useMemo(() => {
     const aanwezig = new Set(aanw.filter((a) => a.status === 'aanwezig').map((a) => a.player_id))
     return spelers.filter((s) => aanwezig.has(s.id)).map((s) => {
-      const rij = seizoen.find((r) => r.player_id === s.id)
       const n: Record<string, number> = {}
       for (const p of niveaus) if (p.player_id === s.id) n[p.position_code] = p.niveau
       return {
         id: s.id, naam: s.naam, niveaus: n, voorkeur: s.voorkeurspositie,
-        seizoenGemiddeld: rij && rij.aanwezig > 0 ? rij.minuten_gespeeld / rij.aanwezig : null,
+        recentGemiddeld: bankGeschiedenis?.perId.get(s.id)?.recentGemiddeld ?? null,
         vorigeBankMin: bankGeschiedenis?.perId.get(s.id)?.vorigeBankMin ?? 0,
       }
     })
-  }, [spelers, niveaus, aanw, seizoen, bankGeschiedenis])
+  }, [spelers, niveaus, aanw, bankGeschiedenis])
 
   if (fout && !match) return <p className="fout">{fout}</p>
   if (!match || !id) return <p>Laden...</p>

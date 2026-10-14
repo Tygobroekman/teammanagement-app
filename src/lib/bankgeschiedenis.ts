@@ -13,7 +13,13 @@ export type SpelerBank = {
   bankMin: number
   vorigeBank: boolean // zat in de laatste definitieve wedstrijd op de bank
   vorigeBankMin: number // bankminuten in de laatste definitieve wedstrijd (0 als hij niet meedeed)
+  // Gemiddeld aantal gespeelde minuten in de laatste wedstrijden waarin hij meedeed, de nieuwste telt zwaarder.
+  // null als hij daar niet aanwezig was.
+  recentGemiddeld: number | null
 }
+// Zoveel van de laatste definitieve wedstrijden tellen mee voor de eerlijke verdeling, met gewicht van nieuw naar oud.
+const RECENTE_GEWICHTEN = [3, 2, 1]
+
 export type Geschiedenis = { wedstrijden: WedstrijdKort[]; spelers: SpelerBank[]; perId: Map<string, SpelerBank> }
 
 // Wie zat op de bank, per definitieve wedstrijd van een seizoen. Leenspelers doen niet mee.
@@ -45,6 +51,14 @@ export async function laadBankGeschiedenis(seasonId: string): Promise<Geschieden
     const keren = staten.filter((s) => s.staat === 'deels' || s.staat === 'bank').length
     const aanwezig = staten.filter((s) => s.staat === 'gespeeld' || s.staat === 'deels' || s.staat === 'bank').length
     const laatste = staten[staten.length - 1]
+    const recent = staten.slice(-RECENTE_GEWICHTEN.length).reverse()
+    let som = 0
+    let gewicht = 0
+    recent.forEach((st, i) => {
+      if (st.staat !== 'gespeeld' && st.staat !== 'deels' && st.staat !== 'bank') return
+      som += RECENTE_GEWICHTEN[i] * (st.duur - st.bank)
+      gewicht += RECENTE_GEWICHTEN[i]
+    })
     return {
       id: sp.id,
       naam: sp.naam,
@@ -53,6 +67,7 @@ export async function laadBankGeschiedenis(seasonId: string): Promise<Geschieden
       aanwezig,
       bankMin: staten.reduce((a, s) => a + s.bank, 0),
       vorigeBank: laatste.staat === 'deels' || laatste.staat === 'bank',
+      recentGemiddeld: gewicht > 0 ? som / gewicht : null,
       vorigeBankMin: laatste.staat === 'gespeeld' || laatste.staat === 'deels' || laatste.staat === 'bank' ? laatste.bank : 0,
     }
   })

@@ -12,7 +12,7 @@ export type GenSpeler = {
   naam: string
   niveaus: Record<string, number> // positiecode -> niveau 1 tot 5
   voorkeur: string | null
-  seizoenGemiddeld: number | null // gem. gespeelde minuten per aanwezige wedstrijd, null = onbekend
+  recentGemiddeld: number | null // gem. gespeelde minuten in de laatste wedstrijden (nieuwste telt zwaarder), null = onbekend
   vorigeBankMin?: number // bankminuten in de laatste wedstrijd: hoe meer, hoe meer voorrang nu
 }
 export type GenSlot = { slot: number; position_code: string }
@@ -34,7 +34,7 @@ export type GenVoorstel = {
 const ONBEKEND_NIVEAU = 0.5
 const VOORKEUR_BONUS = 0.25
 const BLIJF_BONUS = 6 // doorspelen op dezelfde plek gaat voor een andere positie (sterkte loopt tot ongeveer 5)
-const SEIZOEN_GEWICHT = 0.5 // hoeveel van het seizoenstekort in minuten wordt bijgesteld
+const RECENT_GEWICHT = 1 // hoe sterk wie de laatste wedstrijden weinig speelde extra minuten krijgt
 // Gewichten voor het kiezen per blok. Hoe groter, hoe zwaarder het telt:
 const BEHOEFTE_GEWICHT = 1000 // wie nog minuten nodig heeft, gaat voor
 const VERPLICHT_BONUS = 3000 // wie de rest van de wedstrijd moet spelen om zijn minuten te halen
@@ -149,10 +149,10 @@ export function genereer(opts: {
   const doelSterk = pool.map((s) => (sterkste.has(s.id) ? duur : 0))
 
   // 2. Streefminuten bij "eerlijk": gelijk verdeeld, met bijstelling voor het seizoenstekort.
-  const bekend = pool.filter((s) => s.seizoenGemiddeld !== null).map((s) => s.seizoenGemiddeld as number)
+  const bekend = pool.filter((s) => s.recentGemiddeld !== null).map((s) => s.recentGemiddeld as number)
   const groep = bekend.length ? bekend.reduce((a, b) => a + b, 0) / bekend.length : 0
   const ruwEerlijk = pool.map(
-    (s) => (duur * f) / P + SEIZOEN_GEWICHT * (groep - (s.seizoenGemiddeld ?? groep)) + VOORRANG_MINUTEN * duur * voorrang(s),
+    (s) => (duur * f) / P + RECENT_GEWICHT * (groep - (s.recentGemiddeld ?? groep)) + VOORRANG_MINUTEN * duur * voorrang(s),
   )
   // Wie op geen enkele plek kan staan, krijgt geen minuten toegewezen (en wordt gemeld).
   const kanSpelen = pool.map((sp) => veldSlots.some((sl) => kan(sp, sl.position_code)))
