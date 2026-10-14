@@ -5,6 +5,9 @@ import { genereer, type GenSpeler } from '../lib/generator'
 import { veldNu } from '../lib/minuten'
 import Speelveld from '../components/Speelveld'
 import RustOverzicht from '../components/RustOverzicht'
+import { BankLegenda, BankStippen } from '../components/BankStippen'
+import { useBankGeschiedenis } from '../lib/bankgeschiedenis'
+import { avatarStijl, initialen } from '../lib/format'
 import { useBevestig } from '../components/Bevestig'
 import type {
   Attendance, Formation, FormationSlot, LineupSlot, Match, Player, PlayerPosition, Substitution,
@@ -86,6 +89,8 @@ export default function Opstelling() {
       }
     })
   }, [spelers, niveaus, aanw, seizoen])
+
+  const bankGeschiedenis = useBankGeschiedenis(match?.season_id)
 
   if (fout && !match) return <p className="fout">{fout}</p>
   if (!match || !id) return <p>Laden...</p>
@@ -335,22 +340,57 @@ export default function Opstelling() {
           {bank.map((g) => {
             const n = geselecteerdeSlot ? niveauVoor(g.id, geselecteerdeSlot.position_code) : undefined
             const m = minuten(g.id)
+            const bg = bankGeschiedenis?.perId.get(g.id)
             return (
               <button
                 key={g.id}
                 type="button"
-                className={`chip ${sel?.soort === 'bank' && sel.pid === g.id ? 'gekozen' : ''} ${m === 0 ? 'nul' : ''}`}
+                className={`chip ${sel?.soort === 'bank' && sel.pid === g.id ? 'gekozen' : ''} ${m === 0 ? 'nul' : ''} ${bg?.vorigeBank ? 'vorige' : ''}`}
                 onClick={() => tikBank(g.id)}
               >
                 <span>{g.naam}</span>
-                <span className="sub">{n ? `niv ${n} · ` : ''}{m}'</span>
+                <span className="sub">{n ? `niv ${n} · ` : ''}{m}'{bg && bg.keren > 0 ? ` · bank ${bg.keren}x` : ''}</span>
               </button>
             )
           })}
         </div>
       )}
-      <p className="sub">De minuten achter een naam zijn de totale speeltijd in beide helften.</p>
+      <p className="sub">
+        De minuten achter een naam zijn de totale speeltijd in beide helften. Een gele naam zat in de laatste wedstrijd op de bank.
+      </p>
       </>
+      )}
+
+      {bankGeschiedenis && bankGeschiedenis.wedstrijden.length > 0 && genSpelers.length > 0 && (
+        <details className="bankhistorie" open>
+          <summary>Wie zat er eerder op de bank?</summary>
+          <ul className="lijst">
+            {genSpelers
+              .map((g) => bankGeschiedenis.perId.get(g.id))
+              .filter((r): r is NonNullable<typeof r> => r !== undefined)
+              .sort((a, b) => b.keren - a.keren || b.bankMin - a.bankMin || a.naam.localeCompare(b.naam, 'nl'))
+              .map((r) => (
+                <li key={r.id} className="aanw seizoenrij">
+                  <span className="speler">
+                    <span className="avatar" style={avatarStijl(r.naam)}>{initialen(r.naam)}</span>
+                    <span className="blok">
+                      <span className="naamregel">
+                        <span>{r.naam}</span>
+                        {r.vorigeBank && <span className="chipje geel">vorige keer bank</span>}
+                      </span>
+                      <BankStippen staten={r.staten} />
+                    </span>
+                  </span>
+                  <span className="rechts">
+                    <span className="groot-getal">{r.keren}x</span>
+                    <span className="sub klein-regel">van {r.aanwezig}</span>
+                  </span>
+                </li>
+              ))}
+          </ul>
+          <BankLegenda />
+          <p className="sub">Alleen definitieve wedstrijden. De stippen lopen van oud naar nieuw.</p>
+        </details>
       )}
 
       {fout && <p className="fout">{fout}</p>}
