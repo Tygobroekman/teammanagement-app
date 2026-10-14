@@ -14,6 +14,13 @@ import type {
   Attendance, Formation, FormationSlot, LineupSlot, Match, Player, PlayerPosition, Substitution,
 } from '../lib/types'
 
+// De drie meest voorkomende keuzes voor het voorstel.
+const KEUZES = [
+  { waarde: 0, label: 'Sterkste elf', uitleg: 'De sterkste spelers spelen de hele wedstrijd, de rest krijgt een helft.' },
+  { waarde: 50, label: 'Gemiddeld', uitleg: 'Een mix: sterke spelers en spelers die het minst speelden delen de hele wedstrijden.' },
+  { waarde: 100, label: 'Eerlijkste speeltijd', uitleg: 'Wie dit seizoen het minst speelde, speelt nu de hele wedstrijd.' },
+]
+
 type Selectie = { soort: 'slot'; slot: number } | { soort: 'bank'; pid: string } | null
 type SeizoenRij = { player_id: string; aanwezig: number; minuten_gespeeld: number }
 
@@ -289,15 +296,19 @@ export default function Opstelling() {
           ) : (
             <>
               <p className="sub">{genSpelers.length} aanwezig. Wissels alleen in de rust. Iedereen speelt minstens een helft.</p>
-              <input
-                type="range" min={0} max={100} step={5} value={weging}
-                onChange={(e) => setWeging(Number(e.target.value))}
-                aria-label="Weging tussen sterkste elf en eerlijke speeltijd"
-              />
-              <div className="schuiflabels">
-                <span className={weging < 50 ? 'dik' : ''}>Sterkste elf</span>
-                <span className={weging > 50 ? 'dik' : ''}>Eerlijke speeltijd</span>
+              <div className="keuze drie" role="group" aria-label="Wat vind je belangrijker?">
+                {KEUZES.map((k) => (
+                  <button
+                    key={k.waarde}
+                    type="button"
+                    className={weging === k.waarde ? 'actief' : ''}
+                    onClick={() => setWeging(k.waarde)}
+                  >
+                    {k.label}
+                  </button>
+                ))}
               </div>
+              <p className="sub">{KEUZES.find((k) => k.waarde === weging)?.uitleg}</p>
               {genSpelers.filter((g) => (g.niveaus.GK ?? 0) > 0).length >= 2 && (
                 <label className="regel">
                   <input type="checkbox" checked={keeperWisselen} onChange={(e) => setKeeperWisselen(e.target.checked)} />

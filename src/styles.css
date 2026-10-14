@@ -261,3 +261,4 @@ details.bankhistorie summary { cursor: pointer; font-size: 13px; text-transform:
 .bankrij .speler { flex: 1; }
 .bankdetail { padding-left: 54px; }
 .bankdetail .wedstrijd { font-weight: 500; }
+.keuze.drie button { padding: 0 6px; font-size: 14px; min-height: 52px; line-height: 1.15; }
