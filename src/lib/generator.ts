@@ -13,7 +13,7 @@ export type GenSpeler = {
   niveaus: Record<string, number> // positiecode -> niveau 1 tot 5
   voorkeur: string | null
   seizoenGemiddeld: number | null // gem. gespeelde minuten per aanwezige wedstrijd, null = onbekend
-  vorigeBank?: boolean // zat in de laatste wedstrijd op de bank en krijgt nu voorrang
+  vorigeBankMin?: number // bankminuten in de laatste wedstrijd: hoe meer, hoe meer voorrang nu
 }
 export type GenSlot = { slot: number; position_code: string }
 export type GenWissel = { minuut: number; slot: number; player_in: string; player_out: string }
@@ -35,7 +35,9 @@ const SEIZOEN_GEWICHT = 0.5 // hoeveel van het seizoenstekort in minuten wordt b
 const BEHOEFTE_GEWICHT = 1000 // wie nog minuten nodig heeft, gaat voor
 const VERPLICHT_BONUS = 3000 // wie de rest van de wedstrijd moet spelen om zijn minuten te halen
 const GEEN_RUST = 3000 // wie zijn minuten al heeft, speelt alleen mee als het niet anders kan
-// Voorrang voor wie vorige keer op de bank zat:
+// Voorrang voor wie vorige keer op de bank zat. De voorrang groeit met de bankminuten: een halve wedstrijd
+// of meer op de bank (de hele wedstrijd, de eerste helft of vanaf de rust) geeft volle voorrang. Wie is ingevallen
+// zat korter op de bank en krijgt dus minder voorrang, want die gespeelde minuten tellen mee.
 const VOORRANG_NIVEAU = 3 // telt mee bij het kiezen van de basis, ook bij 'sterkste elf'
 const VOORRANG_MINUTEN = 0.4 // extra streefminuten, als deel van de wedstrijdduur, bij eerlijke speeltijd
 const ONTOEGESTAAN = 20000 // een positie waar een speler niet voor is opgegeven, alleen als niemand anders kan
@@ -121,10 +123,13 @@ export function genereer(opts: {
   const f = veldSlots.length
   const P = pool.length
 
+  // Kwadratisch: een halve wedstrijd op de bank is volle voorrang, een korte stint op de bank telt maar een beetje.
+  const voorrang = (sp: GenSpeler) => Math.min(1, Math.max(0, (sp.vorigeBankMin ?? 0) / (duur / 2))) ** 2
+
   const kies = (kandidaten: GenSpeler[], vorige?: Map<string, number>) => {
     const kosten = veldSlots.map((sl) =>
       kandidaten.map((sp) =>
-        -(sterkte(sp, sl.position_code) + (sp.vorigeBank ? VOORRANG_NIVEAU : 0) + (vorige?.get(sp.id) === sl.slot ? BLIJF_BONUS : 0) - (kan(sp, sl.position_code) ? 0 : ONTOEGESTAAN)),
+        -(sterkte(sp, sl.position_code) + VOORRANG_NIVEAU * voorrang(sp) + (vorige?.get(sp.id) === sl.slot ? BLIJF_BONUS : 0) - (kan(sp, sl.position_code) ? 0 : ONTOEGESTAAN)),
       ),
     )
     return hongaars(kosten).map((j, i) => ({ slot: veldSlots[i].slot, speler: kandidaten[j] }))
@@ -138,7 +143,7 @@ export function genereer(opts: {
   const bekend = pool.filter((s) => s.seizoenGemiddeld !== null).map((s) => s.seizoenGemiddeld as number)
   const groep = bekend.length ? bekend.reduce((a, b) => a + b, 0) / bekend.length : 0
   const ruwEerlijk = pool.map(
-    (s) => (duur * f) / P + SEIZOEN_GEWICHT * (groep - (s.seizoenGemiddeld ?? groep)) + (s.vorigeBank ? VOORRANG_MINUTEN * duur : 0),
+    (s) => (duur * f) / P + SEIZOEN_GEWICHT * (groep - (s.seizoenGemiddeld ?? groep)) + VOORRANG_MINUTEN * duur * voorrang(s),
   )
   const doelEerlijk = normaliseer(ruwEerlijk, duur * f, duur)
 
@@ -174,7 +179,7 @@ export function genereer(opts: {
     const kosten = veldSlots.map((sl) =>
       pool.map((sp, i) => {
         const key = rest[i] / over + (sterkste.has(sp.id) ? 0.03 : 0) + (vorige?.has(sp.id) ? 0.02 : 0)
-        let score = BEHOEFTE_GEWICHT * key + sterkte(sp, sl.position_code) + (sp.vorigeBank ? VOORRANG_NIVEAU : 0)
+        let score = BEHOEFTE_GEWICHT * key + sterkte(sp, sl.position_code) + VOORRANG_NIVEAU * voorrang(sp)
         if (rest[i] >= over) score += VERPLICHT_BONUS
         if (rest[i] <= 0) score -= GEEN_RUST
         if (vorige?.get(sp.id) === sl.slot) score += BLIJF_BONUS

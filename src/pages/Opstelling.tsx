@@ -89,7 +89,7 @@ export default function Opstelling() {
       return {
         id: s.id, naam: s.naam, niveaus: n, voorkeur: s.voorkeurspositie,
         seizoenGemiddeld: rij && rij.aanwezig > 0 ? rij.minuten_gespeeld / rij.aanwezig : null,
-        vorigeBank: bankGeschiedenis?.perId.get(s.id)?.vorigeBank ?? false,
+        vorigeBankMin: bankGeschiedenis?.perId.get(s.id)?.vorigeBankMin ?? 0,
       }
     })
   }, [spelers, niveaus, aanw, seizoen, bankGeschiedenis])
@@ -183,18 +183,28 @@ export default function Opstelling() {
     setVoorstelOpen(false)
     setFout(null)
     // Waarschuwen voor wat het voorstel niet goed kon invullen.
+    const inBasisNu = new Set(v.basis.map((x) => x.player_id))
     const m: string[] = []
     for (const pid of v.zonderPositie) m.push(`${naam(pid)} heeft geen posities ingevuld en wordt niet ingezet.`)
     for (const b of v.buitenPositie) {
       const pos = slots.find((x) => x.slot === b.slot)?.position_code ?? ''
       m.push(`${naam(b.player_id)} staat op ${pos}, maar daar is geen niveau voor ingevuld. Er was niemand anders voor die plek.`)
     }
+    // Geen wissels terwijl er spelers op de bank zitten: leg uit waarom, anders lijkt het alsof er iets stuk is.
+    if (v.wissels.length === 0 && genSpelers.length > slots.length) {
+      const bankNamen = genSpelers.filter((g) => !inBasisNu.has(g.id)).map((g) => g.naam).join(', ')
+      m.push(
+        weging < 35
+          ? 'Er zijn geen wissels in de rust, omdat de schuif bij "Sterkste elf" staat. Zet de schuif naar rechts om de bank te laten meespelen.'
+          : `Er zijn geen wissels in de rust. De spelers op de bank (${bankNamen}) kunnen waarschijnlijk alleen op posities spelen waar geen wissel mogelijk is. Vul bij hen meer posities in bij Spelers, dan kan het voorstel meer wisselen.`,
+      )
+    }
     setMeldingen(m)
     // Terugkoppeling over de voorrang voor wie vorige keer op de bank zat.
     const inBasis = new Set(v.basis.map((b) => b.player_id))
-    const voorrang = genSpelers.filter((g) => g.vorigeBank).map((g) => {
+    const voorrang = genSpelers.filter((g) => (g.vorigeBankMin ?? 0) > 0).sort((a, b) => (b.vorigeBankMin ?? 0) - (a.vorigeBankMin ?? 0)).map((g) => {
       const min = v.minuten.get(g.id) ?? 0
-      return `${g.naam} (${inBasis.has(g.id) ? 'basis' : min > 0 ? '2e helft' : 'speelt niet'})`
+      return `${g.naam} (${g.vorigeBankMin}' bank, nu ${inBasis.has(g.id) ? 'basis' : min > 0 ? '2e helft' : 'speelt niet'})`
     })
     setVoorrangInfo(voorrang.length ? voorrang.join(', ') : null)
   }

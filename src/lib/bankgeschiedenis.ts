@@ -12,6 +12,7 @@ export type SpelerBank = {
   aanwezig: number // aantal wedstrijden dat de speler aanwezig was
   bankMin: number
   vorigeBank: boolean // zat in de laatste definitieve wedstrijd op de bank
+  vorigeBankMin: number // bankminuten in de laatste definitieve wedstrijd (0 als hij niet meedeed)
 }
 export type Geschiedenis = { wedstrijden: WedstrijdKort[]; spelers: SpelerBank[]; perId: Map<string, SpelerBank> }
 
@@ -52,6 +53,7 @@ export async function laadBankGeschiedenis(seasonId: string): Promise<Geschieden
       aanwezig,
       bankMin: staten.reduce((a, s) => a + s.bank, 0),
       vorigeBank: laatste.staat === 'deels' || laatste.staat === 'bank',
+      vorigeBankMin: laatste.staat === 'gespeeld' || laatste.staat === 'deels' || laatste.staat === 'bank' ? laatste.bank : 0,
     }
   })
   return { wedstrijden, spelers, perId: new Map(spelers.map((s) => [s.id, s])) }
