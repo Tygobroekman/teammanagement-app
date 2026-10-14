@@ -1,18 +1,19 @@
 // Opstellingsgenerator: stelt een basis en een wisselschema voor.
 //
-// Idee: de wedstrijd wordt in gelijke blokken verdeeld (standaard 6 van 15 minuten).
-// Elke speler krijgt een streefaantal speelminuten. De schuif (weging) bepaalt dat doel:
-//   0   = sterkste elf spelen alles
-//   100 = eerlijke verdeling, waarbij spelers die dit seizoen weinig speelden extra krijgen
-// Per blok worden daarna 11 spelers gekozen en aan posities toegewezen. Spelers die
-// doorspelen blijven op hun plek, een wisselspeler neemt de plek van wie eruit gaat.
+// Hoofdroute (genereerHelften): wissels alleen in de rust. Iedereen die kan spelen krijgt minstens een helft.
+// Wie de hele wedstrijd speelt (90), wie alleen de eerste helft speelt en wie pas in de tweede helft invalt,
+// volgt uit een gewicht per speler: de rang uit de sheet van het team (eerlijkheid.ts), eventueel gemengd met
+// de sterkte op de positie. De hoogste gewichten spelen het meest en beginnen. Elke invaller vervangt alleen
+// iemand op een positie die hij kan spelen. Lukt dat niet, dan valt de generator terug op de oudere aanpak
+// met blokken (genereerBlokken).
 
 export type GenSpeler = {
   id: string
   naam: string
   niveaus: Record<string, number> // positiecode -> niveau 1 tot 5
   voorkeur: string | null
-  recentGemiddeld: number | null // gem. gespeelde minuten in de laatste wedstrijden (nieuwste telt zwaarder), null = onbekend
+  rang?: number // rang uit de sheet: hoger = vaker op de bank gezeten = eerder aan de beurt
+  recentGemiddeld?: number | null // alleen voor de terugvalroute: gem. gespeelde minuten, null = onbekend
   vorigeBankMin?: number // bankminuten in de laatste wedstrijd: hoe meer, hoe meer voorrang nu
 }
 export type GenSlot = { slot: number; position_code: string }
@@ -107,15 +108,17 @@ function normaliseer(ruw: number[], totaal: number, min: number[], max: number[]
   return ruw.map((_, i) => klem(i, (lo + hi) / 2))
 }
 
-export function genereer(opts: {
+export type GenOpties = {
   spelers: GenSpeler[]
   slots: GenSlot[]
   duur: number
-  weging: number // 0 tot 100
+  weging: number // 0 = sterkste elf, 100 = eerlijkste speeltijd
   blokken?: number
   // Standaard blijft de keeper de hele wedstrijd staan. Met true wisselen twee keepers per helft.
   keepersWisselen?: boolean
-}): GenVoorstel | null {
+}
+
+function genereerBlokken(opts: GenOpties): GenVoorstel | null {
   const { spelers, slots, duur } = opts
   const w = Math.min(100, Math.max(0, opts.weging)) / 100
   const K = opts.blokken ?? 6
@@ -149,7 +152,7 @@ export function genereer(opts: {
   const doelSterk = pool.map((s) => (sterkste.has(s.id) ? duur : 0))
 
   // 2. Streefminuten bij "eerlijk": gelijk verdeeld, met bijstelling voor het seizoenstekort.
-  const bekend = pool.filter((s) => s.recentGemiddeld !== null).map((s) => s.recentGemiddeld as number)
+  const bekend = pool.filter((s) => (s.recentGemiddeld ?? null) !== null).map((s) => s.recentGemiddeld as number)
   const groep = bekend.length ? bekend.reduce((a, b) => a + b, 0) / bekend.length : 0
   const ruwEerlijk = pool.map(
     (s) => (duur * f) / P + RECENT_GEWICHT * (groep - (s.recentGemiddeld ?? groep)) + VOORRANG_MINUTEN * duur * voorrang(s),
@@ -278,4 +281,180 @@ export function genereer(opts: {
   // Een reservekeeper die niet meespeelt omdat de keeper blijft staan.
   const reservekeepers = keeper ? keepers.filter((k) => k.id !== keeper.id && (minuten.get(k.id) ?? 0) === 0).map((k) => k.id) : []
   return { basis, wissels, minuten, buitenPositie, zonderPositie, nietIngezet, reservekeepers }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Hoofdroute: wissels alleen in de rust, gestuurd door de rang uit de sheet.
+// ---------------------------------------------------------------------------------------------
+
+// Een klein netwerk om de verdeling exact te berekenen (minimale kosten, maximale stroom).
+type Boog = { naar: number; cap: number; kosten: number; terug: number }
+class Netwerk {
+  graaf: Boog[][]
+  constructor(n: number) {
+    this.graaf = Array.from({ length: n }, () => [])
+  }
+  voegToe(van: number, naar: number, cap: number, kosten: number): Boog {
+    const heen: Boog = { naar, cap, kosten, terug: this.graaf[naar].length }
+    const terug: Boog = { naar: van, cap: 0, kosten: -kosten, terug: this.graaf[van].length }
+    this.graaf[van].push(heen)
+    this.graaf[naar].push(terug)
+    return heen
+  }
+  // Stuurt zoveel mogelijk eenheden van bron naar put, steeds langs het goedkoopste pad.
+  stroom(bron: number, put: number): number {
+    const n = this.graaf.length
+    let totaal = 0
+    for (;;) {
+      const afstand = new Array<number>(n).fill(Infinity)
+      const vorigeNode = new Array<number>(n).fill(-1)
+      const vorigeBoog = new Array<number>(n).fill(-1)
+      const inRij = new Array<boolean>(n).fill(false)
+      afstand[bron] = 0
+      const rij = [bron]
+      inRij[bron] = true
+      while (rij.length) {
+        const u = rij.shift()!
+        inRij[u] = false
+        this.graaf[u].forEach((b, idx) => {
+          if (b.cap > 0 && afstand[u] + b.kosten < afstand[b.naar] - 1e-12) {
+            afstand[b.naar] = afstand[u] + b.kosten
+            vorigeNode[b.naar] = u
+            vorigeBoog[b.naar] = idx
+            if (!inRij[b.naar]) { rij.push(b.naar); inRij[b.naar] = true }
+          }
+        })
+      }
+      if (afstand[put] === Infinity) break
+      let v = put
+      while (v !== bron) {
+        const u = vorigeNode[v]
+        const b = this.graaf[u][vorigeBoog[v]]
+        b.cap -= 1
+        this.graaf[v][b.terug].cap += 1
+        v = u
+      }
+      totaal += 1
+    }
+    return totaal
+  }
+}
+
+function genereerHelften(opts: GenOpties): GenVoorstel | null {
+  const { spelers, slots, duur } = opts
+  const t = Math.min(100, Math.max(0, opts.weging)) / 100 // 1 = alleen de rang telt, 0 = alleen de sterkte telt
+  if (spelers.length < slots.length) return null
+
+  // De keeper blijft de hele wedstrijd staan, tenzij je kiest voor wisselen tussen twee keepers.
+  const keeperSlot = slots.find((s) => s.position_code === 'GK')
+  const keepers = spelers.filter((s) => (s.niveaus.GK ?? 0) > 0)
+  const besteKeeper = [...keepers].sort((a, b) => (b.niveaus.GK ?? 0) - (a.niveaus.GK ?? 0) || (b.rang ?? 0) - (a.rang ?? 0))[0]
+  const keeper = keeperSlot && besteKeeper && !(opts.keepersWisselen && keepers.length >= 2) ? besteKeeper : undefined
+  const veldSlots = keeper ? slots.filter((s) => s !== keeperSlot) : slots
+  const pool = keeper ? spelers.filter((s) => s.id !== keeper.id) : spelers
+  const f = veldSlots.length
+  const posities = veldSlots.map((s) => s.position_code)
+
+  // Alleen spelers die op minstens een plek kunnen staan, doen mee aan de verdeling.
+  const kandi = pool.filter((sp) => posities.some((p) => kan(sp, p)))
+  const P = kandi.length
+  if (P < f) return null // te weinig spelers voor de posities: terugvalroute
+
+  // Gewicht per speler: de rang uit de sheet, gemengd met de sterkte op zijn beste positie.
+  const rangen = kandi.map((sp) => sp.rang ?? 0)
+  const rMin = Math.min(...rangen)
+  const rMax = Math.max(...rangen)
+  const rangNorm = (sp: GenSpeler) => (rMax > rMin ? ((sp.rang ?? rMin) - rMin) / (rMax - rMin) : 0.5)
+  const sterkteNorm = (sp: GenSpeler) => Math.max(...posities.filter((p) => kan(sp, p)).map((p) => sterkte(sp, p))) / 5.25
+  const gewicht = kandi.map(
+    (sp) => t * rangNorm(sp) + (1 - t) * sterkteNorm(sp) + 0.002 * sterkteNorm(sp) + 0.001 * Math.min(1, (sp.vorigeBankMin ?? 0) / duur),
+  )
+
+  // Het netwerk: elke plek in elke helft krijgt precies een speler, elke speler hoogstens een plek per helft.
+  // Het eerste blok speeltijd van een speler is veel waard (zodat iedereen die kan spelen, speelt), het tweede blok
+  // is zijn gewicht waard (zodat de hoogste gewichten de hele wedstrijd spelen). Wie een helft speelt en een
+  // hoog gewicht heeft, begint liever in de eerste helft.
+  const BIG = 1000
+  const EERSTE_HELFT = 0.01
+  const bron = 0
+  const spelerNode = (i: number) => 1 + i
+  const helftNode = (i: number, h: number) => 1 + P + 2 * i + h
+  const plekNode = (h: number, k: number) => 1 + 3 * P + h * f + k
+  const put = 1 + 3 * P + 2 * f
+  const net = new Netwerk(put + 1)
+  const helftBoog: Boog[][] = []
+  for (let i = 0; i < P; i++) {
+    net.voegToe(bron, spelerNode(i), 1, -(BIG + gewicht[i]))
+    net.voegToe(bron, spelerNode(i), 1, -gewicht[i])
+    helftBoog.push([
+      net.voegToe(spelerNode(i), helftNode(i, 0), 1, -EERSTE_HELFT * gewicht[i]),
+      net.voegToe(spelerNode(i), helftNode(i, 1), 1, 0),
+    ])
+    for (let h = 0; h < 2; h++) {
+      for (let k = 0; k < f; k++) {
+        if (kan(kandi[i], posities[k])) net.voegToe(helftNode(i, h), plekNode(h, k), 1, 0)
+      }
+    }
+  }
+  for (let h = 0; h < 2; h++) for (let k = 0; k < f; k++) net.voegToe(plekNode(h, k), put, 1, 0)
+  if (net.stroom(bron, put) < 2 * f) return null // de posities laten geen volledige bezetting toe: terugvalroute
+
+  // Wie speelt in welke helft?
+  const inHelft = (h: number) => kandi.map((_, i) => i).filter((i) => helftBoog[i][h].cap === 0)
+  const S1 = inHelft(0)
+  const S2 = inHelft(1)
+  if (S1.length !== f || S2.length !== f) return null
+
+  // Per helft de spelers aan posities koppelen: de beste sterkte, en wie doorspeelt blijft op zijn plek.
+  const wijsToe = (set: number[], vorigeSlotVan?: Map<number, number>): Map<number, number> | null => {
+    const kosten = veldSlots.map((sl) =>
+      set.map((i) => {
+        const sp = kandi[i]
+        let score = sterkte(sp, sl.position_code)
+        if (vorigeSlotVan?.get(i) === sl.slot) score += BLIJF_BONUS
+        if (!kan(sp, sl.position_code)) score -= ONTOEGESTAAN
+        return -score
+      }),
+    )
+    const uitkomst = new Map<number, number>() // slot -> index in kandi
+    for (const [r, j] of hongaars(kosten).entries()) {
+      if (!kan(kandi[set[j]], veldSlots[r].position_code)) return null
+      uitkomst.set(veldSlots[r].slot, set[j])
+    }
+    return uitkomst
+  }
+  const helft1 = wijsToe(S1)
+  if (!helft1) return null
+  const vorigeSlotVan = new Map<number, number>([...helft1].map(([slot, i]) => [i, slot]))
+  const helft2 = wijsToe(S2, vorigeSlotVan)
+  if (!helft2) return null
+
+  // Uitkomst: basis, wissels in de rust en speelminuten.
+  const rust = Math.round(duur / 2)
+  const basis: { slot: number; player_id: string }[] = []
+  const wissels: GenWissel[] = []
+  const minuten = new Map<string, number>()
+  const tel = (id: string, m: number) => minuten.set(id, (minuten.get(id) ?? 0) + m)
+  if (keeper && keeperSlot) {
+    basis.push({ slot: keeperSlot.slot, player_id: keeper.id })
+    tel(keeper.id, duur)
+  }
+  for (const sl of veldSlots) {
+    const i1 = helft1.get(sl.slot)!
+    const i2 = helft2.get(sl.slot)!
+    basis.push({ slot: sl.slot, player_id: kandi[i1].id })
+    tel(kandi[i1].id, rust)
+    tel(kandi[i2].id, duur - rust)
+    if (i1 !== i2) wissels.push({ minuut: rust, slot: sl.slot, player_in: kandi[i2].id, player_out: kandi[i1].id })
+  }
+  basis.sort((x, y) => x.slot - y.slot)
+  const zonderPositie = spelers.filter((sp) => !slots.some((sl) => kan(sp, sl.position_code))).map((sp) => sp.id)
+  const nietIngezet = kandi.filter((sp) => (minuten.get(sp.id) ?? 0) === 0).map((sp) => sp.id) // meer spelers dan plekken
+  const reservekeepers = keeper ? keepers.filter((k) => k.id !== keeper.id && (minuten.get(k.id) ?? 0) === 0).map((k) => k.id) : []
+  return { basis, wissels, minuten, buitenPositie: [], zonderPositie, nietIngezet, reservekeepers }
+}
+
+// Eerst de hoofdroute. Past het niet op de posities, dan de oudere aanpak met blokken, die ook waarschuwt.
+export function genereer(opts: GenOpties): GenVoorstel | null {
+  return genereerHelften(opts) ?? genereerBlokken({ ...opts, blokken: 2 })
 }

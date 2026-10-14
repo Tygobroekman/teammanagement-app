@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
+import { rangen, sheetScore } from './eerlijkheid'
 
 export type Staat = 'gespeeld' | 'deels' | 'bank' | 'afwezig' | 'geblesseerd' | 'onbekend'
 export type WedstrijdKort = { id: string; aanvang: string; tegenstander: string }
@@ -13,26 +14,31 @@ export type SpelerBank = {
   bankMin: number
   vorigeBank: boolean // zat in de laatste definitieve wedstrijd op de bank
   vorigeBankMin: number // bankminuten in de laatste definitieve wedstrijd (0 als hij niet meedeed)
-  // Gemiddeld aantal gespeelde minuten in de laatste wedstrijden waarin hij meedeed, de nieuwste telt zwaarder.
-  // null als hij daar niet aanwezig was.
-  recentGemiddeld: number | null
+  // De eerlijkheidsregels uit de sheet (zie eerlijkheid.ts): Relatief, Gem. en Rang over de laatste wedstrijden.
+  relatief: number
+  gem: number
+  rang: number // hoger = vaker op de bank gezeten = eerder aan de beurt
 }
-// Zoveel van de laatste definitieve wedstrijden tellen mee voor de eerlijke verdeling, met gewicht van nieuw naar oud.
-const RECENTE_GEWICHTEN = [3, 2, 1]
 
-export type Geschiedenis = { wedstrijden: WedstrijdKort[]; spelers: SpelerBank[]; perId: Map<string, SpelerBank> }
+export type Geschiedenis = {
+  wedstrijden: WedstrijdKort[]
+  spelers: SpelerBank[]
+  perId: Map<string, SpelerBank>
+  // Rang voor wie nog geen gegevens heeft (Gem. 0), zoals een nieuwe speler of een leenspeler.
+  standaardRang: number
+}
 
 // Wie zat op de bank, per definitieve wedstrijd van een seizoen. Leenspelers doen niet mee.
 export async function laadBankGeschiedenis(seasonId: string): Promise<Geschiedenis | null> {
   const m = await supabase.from('matches').select('id, aanvang, tegenstander').eq('season_id', seasonId).eq('status', 'definitief').order('aanvang')
   if (m.error) return null
   const wedstrijden = m.data as WedstrijdKort[]
-  if (wedstrijden.length === 0) return { wedstrijden, spelers: [], perId: new Map() }
+  if (wedstrijden.length === 0) return { wedstrijden, spelers: [], perId: new Map(), standaardRang: 1 }
   const ids = wedstrijden.map((w) => w.id)
   const [mm, at, pl] = await Promise.all([
     supabase.from('match_minutes').select('match_id, player_id, minuten_bank, duur_minuten').in('match_id', ids),
     supabase.from('attendance').select('match_id, player_id, status').in('match_id', ids),
-    supabase.from('players').select('id, naam').eq('leenspeler', false),
+    supabase.from('players').select('id, naam').eq('leenspeler', false).eq('actief', true),
   ])
   if (mm.error || at.error || pl.error) return null
   const minuten = mm.data as { match_id: string; player_id: string; minuten_bank: number; duur_minuten: number }[]
@@ -51,14 +57,7 @@ export async function laadBankGeschiedenis(seasonId: string): Promise<Geschieden
     const keren = staten.filter((s) => s.staat === 'deels' || s.staat === 'bank').length
     const aanwezig = staten.filter((s) => s.staat === 'gespeeld' || s.staat === 'deels' || s.staat === 'bank').length
     const laatste = staten[staten.length - 1]
-    const recent = staten.slice(-RECENTE_GEWICHTEN.length).reverse()
-    let som = 0
-    let gewicht = 0
-    recent.forEach((st, i) => {
-      if (st.staat !== 'gespeeld' && st.staat !== 'deels' && st.staat !== 'bank') return
-      som += RECENTE_GEWICHTEN[i] * (st.duur - st.bank)
-      gewicht += RECENTE_GEWICHTEN[i]
-    })
+    const score = sheetScore(staten.map((st) => ({ staat: st.staat, bank: st.bank })))
     return {
       id: sp.id,
       naam: sp.naam,
@@ -67,11 +66,17 @@ export async function laadBankGeschiedenis(seasonId: string): Promise<Geschieden
       aanwezig,
       bankMin: staten.reduce((a, s) => a + s.bank, 0),
       vorigeBank: laatste.staat === 'deels' || laatste.staat === 'bank',
-      recentGemiddeld: gewicht > 0 ? som / gewicht : null,
+      relatief: score.relatief,
+      gem: score.gem,
+      rang: 0, // wordt hieronder ingevuld
       vorigeBankMin: laatste.staat === 'gespeeld' || laatste.staat === 'deels' || laatste.staat === 'bank' ? laatste.bank : 0,
     }
   })
-  return { wedstrijden, spelers, perId: new Map(spelers.map((s) => [s.id, s])) }
+  // Rang over alle spelers in de selectie, zoals in de sheet.
+  const ranglijst = rangen(spelers.map((s) => s.gem))
+  spelers.forEach((s, i) => { s.rang = ranglijst[i] })
+  const standaardRang = 1 + spelers.filter((s) => s.gem < -1e-9).length
+  return { wedstrijden, spelers, perId: new Map(spelers.map((s) => [s.id, s])), standaardRang }
 }
 
 export function useBankGeschiedenis(seasonId: string | undefined) {

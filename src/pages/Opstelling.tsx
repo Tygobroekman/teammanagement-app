@@ -16,9 +16,9 @@ import type {
 
 // De drie meest voorkomende keuzes voor het voorstel.
 const KEUZES = [
-  { waarde: 0, label: 'Sterkste elf', uitleg: 'De sterkste spelers spelen de hele wedstrijd, de rest krijgt een helft.' },
-  { waarde: 50, label: 'Gemiddeld', uitleg: 'Een mix van de sterkste spelers en eerlijke speeltijd.' },
-  { waarde: 100, label: 'Eerlijkste speeltijd', uitleg: 'Wie vorige keer op de bank zat, begint nu. Wie de laatste wedstrijden het minst speelde, krijgt de meeste minuten.' },
+  { waarde: 0, label: 'Sterkste elf', uitleg: 'De sterkste spelers spelen de hele wedstrijd, de rest krijgt een helft. De rang telt niet mee.' },
+  { waarde: 50, label: 'Gemiddeld', uitleg: 'Een mix van sterkte en de rang uit de sheet.' },
+  { waarde: 100, label: 'Eerlijkste speeltijd', uitleg: 'Zoals in de sheet: wie het vaakst op de bank zat (hoogste rang) speelt het meest en begint. De laagste rangen beginnen op de bank.' },
 ]
 
 type Selectie = { soort: 'slot'; slot: number } | { soort: 'bank'; pid: string } | null
@@ -88,13 +88,21 @@ export default function Opstelling() {
 
   const genSpelers: GenSpeler[] = useMemo(() => {
     const aanwezig = new Set(aanw.filter((a) => a.status === 'aanwezig').map((a) => a.player_id))
+    const rangen = bankGeschiedenis ? bankGeschiedenis.spelers.map((x) => x.rang) : []
+    const rMin = rangen.length ? Math.min(...rangen) : 1
+    const rMax = rangen.length ? Math.max(...rangen) : 1
     return spelers.filter((s) => aanwezig.has(s.id)).map((s) => {
       const n: Record<string, number> = {}
       for (const p of niveaus) if (p.player_id === s.id) n[p.position_code] = p.niveau
+      const bg = bankGeschiedenis?.perId.get(s.id)
+      // Wie nog geen gegevens heeft (nieuw of leenspeler) krijgt de rang van Gem. 0, zoals in de sheet.
+      const rang = bg ? bg.rang : bankGeschiedenis?.standaardRang
       return {
         id: s.id, naam: s.naam, niveaus: n, voorkeur: s.voorkeurspositie,
-        recentGemiddeld: bankGeschiedenis?.perId.get(s.id)?.recentGemiddeld ?? null,
-        vorigeBankMin: bankGeschiedenis?.perId.get(s.id)?.vorigeBankMin ?? 0,
+        rang,
+        // Alleen voor de terugvalroute van de generator: een hoge rang is weinig gespeeld.
+        recentGemiddeld: rang !== undefined && rMax > rMin ? 90 * (1 - (rang - rMin) / (rMax - rMin)) : null,
+        vorigeBankMin: bg?.vorigeBankMin ?? 0,
       }
     })
   }, [spelers, niveaus, aanw, bankGeschiedenis])
@@ -205,11 +213,16 @@ export default function Opstelling() {
     setMeldingen(m)
     // Terugkoppeling over de voorrang voor wie vorige keer op de bank zat.
     const inBasis = new Set(v.basis.map((b) => b.player_id))
-    const voorrang = genSpelers.filter((g) => (g.vorigeBankMin ?? 0) > 0).sort((a, b) => (b.vorigeBankMin ?? 0) - (a.vorigeBankMin ?? 0)).map((g) => {
-      const min = v.minuten.get(g.id) ?? 0
-      return `${g.naam} (${g.vorigeBankMin}' bank, nu ${inBasis.has(g.id) ? 'basis' : min > 0 ? '2e helft' : 'speelt niet'})`
-    })
-    setVoorrangInfo(voorrang.length ? voorrang.join(', ') : null)
+    const met = (g: GenSpeler) => `${g.naam} (${g.rang ?? '?'})`
+    const opRang = (a: GenSpeler, b: GenSpeler) => (b.rang ?? 0) - (a.rang ?? 0)
+    const heel = genSpelers.filter((g) => (v.minuten.get(g.id) ?? 0) >= duur).sort(opRang)
+    const eerste = genSpelers.filter((g) => (v.minuten.get(g.id) ?? 0) > 0 && (v.minuten.get(g.id) ?? 0) < duur && inBasis.has(g.id)).sort(opRang)
+    const tweede = genSpelers.filter((g) => (v.minuten.get(g.id) ?? 0) > 0 && (v.minuten.get(g.id) ?? 0) < duur && !inBasis.has(g.id)).sort(opRang)
+    setVoorrangInfo(
+      bankGeschiedenis && bankGeschiedenis.wedstrijden.length > 0
+        ? `Hele wedstrijd: ${heel.map(met).join(', ') || 'niemand'}. Eerste helft: ${eerste.map(met).join(', ') || 'niemand'}. Beginnen op de bank: ${tweede.map(met).join(', ') || 'niemand'}.`
+        : null,
+    )
     setKeeperInfo(
       v.reservekeepers.length
         ? `${v.reservekeepers.map((id) => naam(id)).join(', ')} is reservekeeper en speelt niet mee, want de keeper blijft de hele wedstrijd staan.`
@@ -319,7 +332,7 @@ export default function Opstelling() {
 
       {voorrangInfo && (
         <p className="banner ok">
-          <strong>Voorrang:</strong> zaten vorige keer op de bank: {voorrangInfo}.
+          <strong>Rang uit de sheet (tussen haakjes):</strong> {voorrangInfo}
         </p>
       )}
 
@@ -413,7 +426,7 @@ export default function Opstelling() {
             {genSpelers
               .map((g) => bankGeschiedenis.perId.get(g.id))
               .filter((r): r is NonNullable<typeof r> => r !== undefined)
-              .sort((a, b) => b.keren - a.keren || b.bankMin - a.bankMin || a.naam.localeCompare(b.naam, 'nl'))
+              .sort((a, b) => b.rang - a.rang || b.keren - a.keren || a.naam.localeCompare(b.naam, 'nl'))
               .map((r) => <BankRij key={r.id} r={r} aanwezigTekst={`van ${r.aanwezig}`} />)}
           </ul>
           <BankLegenda />

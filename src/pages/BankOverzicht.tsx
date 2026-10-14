@@ -15,13 +15,13 @@ export default function BankOverzicht({ seasonId }: { seasonId: string }) {
   const laatste = g.wedstrijden[g.wedstrijden.length - 1]
   const rijen = g.spelers
     .filter((r) => r.aanwezig > 0)
-    .sort((a, b) => b.keren - a.keren || b.bankMin - a.bankMin || a.naam.localeCompare(b.naam, 'nl'))
+    .sort((a, b) => b.rang - a.rang || b.keren - a.keren || a.naam.localeCompare(b.naam, 'nl'))
 
   return (
     <>
       <p className="sub">
-        Laatste wedstrijd: {laatste.tegenstander} ({datumKort(laatste.aanvang)}). De stippen lopen van oud naar nieuw, de
-        meest rechtse is de laatste wedstrijd.
+        Gesorteerd op rang, zoals in de sheet: bovenaan zat het vaakst op de bank en is het eerst aan de beurt. Laatste wedstrijd:
+        {laatste.tegenstander} ({datumKort(laatste.aanvang)}). De stippen lopen van oud naar nieuw.
       </p>
       <ul className="lijst">
         {rijen.map((r) => <BankRij key={r.id} r={r} aanwezigTekst={`van ${r.aanwezig} aanwezig`} />)}
