@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useSeasons } from '../lib/useSeasons'
 import { avatarStijl, initialen } from '../lib/format'
+import BankOverzicht from './BankOverzicht'
 
 type Rij = {
   player_id: string
@@ -20,6 +21,7 @@ export default function Seizoen() {
   const { seasons, currentId, kies } = useSeasons()
   const [rijen, setRijen] = useState<Rij[] | null>(null)
   const [sort, setSort] = useState<Sortering>('gespeeld')
+  const [weergave, setWeergave] = useState<'speeltijd' | 'bank'>('speeltijd')
   const [fout, setFout] = useState<string | null>(null)
 
   useEffect(() => {
@@ -49,19 +51,26 @@ export default function Seizoen() {
   return (
     <>
       <h1>Seizoen</h1>
+      <div className="keuze tabs">
+        <button type="button" className={weergave === 'speeltijd' ? 'actief' : ''} onClick={() => setWeergave('speeltijd')}>Speeltijd</button>
+        <button type="button" className={weergave === 'bank' ? 'actief' : ''} onClick={() => setWeergave('bank')}>Bank</button>
+      </div>
       <div className="regel">
         <select value={currentId ?? ''} onChange={(e) => kies(e.target.value)} aria-label="Seizoen">
           {seasons.map((s) => <option key={s.id} value={s.id}>{s.naam}</option>)}
         </select>
-        <select value={sort} onChange={(e) => setSort(e.target.value as Sortering)} aria-label="Sorteren">
-          <option value="gespeeld">Minuten</option>
-          <option value="bank">Bankminuten</option>
-          <option value="aanwezig">Aanwezig</option>
-          <option value="naam">Naam</option>
-        </select>
+        {weergave === 'speeltijd' && (
+          <select value={sort} onChange={(e) => setSort(e.target.value as Sortering)} aria-label="Sorteren">
+            <option value="gespeeld">Minuten</option>
+            <option value="bank">Bankminuten</option>
+            <option value="aanwezig">Aanwezig</option>
+            <option value="naam">Naam</option>
+          </select>
+        )}
       </div>
-      {fout && <p className="fout">{fout}</p>}
-      {!gesorteerd ? <p>Laden...</p> : gesorteerd.length === 0 ? (
+      {weergave === 'bank' && currentId && <BankOverzicht seasonId={currentId} />}
+      {fout && weergave === 'speeltijd' && <p className="fout">{fout}</p>}
+      {weergave === 'speeltijd' && (!gesorteerd ? <p>Laden...</p> : gesorteerd.length === 0 ? (
         <p>Nog geen definitieve wedstrijden. Zet een wedstrijd op "Definitief" om hem mee te laten tellen.</p>
       ) : (
         <>
@@ -93,7 +102,7 @@ export default function Seizoen() {
             Het grote getal zijn de gespeelde minuten. Spelers die niet zijn opgegeven tellen nergens mee.
           </p>
         </>
-      )}
+      ))}
     </>
   )
 }

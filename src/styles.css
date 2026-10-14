@@ -225,3 +225,17 @@ button.tekstknop { background: none; color: var(--rood); min-height: 0; padding:
 .plek.gekozen { outline: 3px solid var(--amber); outline-offset: 0; background: rgba(0,0,0,.18); }
 .plek.statisch { cursor: default; }
 .codeveld { text-align: center; font-size: 28px; font-weight: 800; letter-spacing: .25em; min-height: 60px; }
+
+/* Bankoverzicht */
+.stippen { display: flex; gap: 5px; margin-top: 5px; flex-wrap: wrap; }
+.stip { display: inline-block; width: 14px; height: 14px; border-radius: 50%; flex: none; }
+.stip.gespeeld { background: #1b9e5a; }
+.stip.deels { background: #f2b200; }
+.stip.bank { background: #e0533f; }
+.stip.afwezig { background: #c5ccc8; }
+.stip.geblesseerd { background: transparent; border: 2px solid #e0533f; }
+.stip.onbekend { background: transparent; border: 2px dashed #c5ccc8; }
+.legenda { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 10px 0 4px; font-size: 13px; color: var(--gedempt); }
+.legenda .stip { vertical-align: -2px; margin-right: 4px; width: 12px; height: 12px; }
+.chipje.geel { background: var(--amber-licht); color: #8a5a00; white-space: nowrap; }
+.naamregel { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; }
