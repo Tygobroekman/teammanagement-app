@@ -38,6 +38,7 @@ export default function Opstelling() {
   const [sel, setSel] = useState<Selectie>(null)
   const [voorstelOpen, setVoorstelOpen] = useState(false)
   const [meldingen, setMeldingen] = useState<string[]>([])
+  const [voorrangInfo, setVoorrangInfo] = useState<string | null>(null)
   const [weging, setWeging] = useState(50)
   const [bezig, setBezig] = useState(false)
   const [fout, setFout] = useState<string | null>(null)
@@ -77,6 +78,8 @@ export default function Opstelling() {
     })()
   }, [id])
 
+  const bankGeschiedenis = useBankGeschiedenis(match?.season_id)
+
   const genSpelers: GenSpeler[] = useMemo(() => {
     const aanwezig = new Set(aanw.filter((a) => a.status === 'aanwezig').map((a) => a.player_id))
     return spelers.filter((s) => aanwezig.has(s.id)).map((s) => {
@@ -86,11 +89,10 @@ export default function Opstelling() {
       return {
         id: s.id, naam: s.naam, niveaus: n, voorkeur: s.voorkeurspositie,
         seizoenGemiddeld: rij && rij.aanwezig > 0 ? rij.minuten_gespeeld / rij.aanwezig : null,
+        vorigeBank: bankGeschiedenis?.perId.get(s.id)?.vorigeBank ?? false,
       }
     })
-  }, [spelers, niveaus, aanw, seizoen])
-
-  const bankGeschiedenis = useBankGeschiedenis(match?.season_id)
+  }, [spelers, niveaus, aanw, seizoen, bankGeschiedenis])
 
   if (fout && !match) return <p className="fout">{fout}</p>
   if (!match || !id) return <p>Laden...</p>
@@ -188,6 +190,13 @@ export default function Opstelling() {
       m.push(`${naam(b.player_id)} staat op ${pos}, maar daar is geen niveau voor ingevuld. Er was niemand anders voor die plek.`)
     }
     setMeldingen(m)
+    // Terugkoppeling over de voorrang voor wie vorige keer op de bank zat.
+    const inBasis = new Set(v.basis.map((b) => b.player_id))
+    const voorrang = genSpelers.filter((g) => g.vorigeBank).map((g) => {
+      const min = v.minuten.get(g.id) ?? 0
+      return `${g.naam} (${inBasis.has(g.id) ? 'basis' : min > 0 ? '2e helft' : 'speelt niet'})`
+    })
+    setVoorrangInfo(voorrang.length ? voorrang.join(', ') : null)
   }
 
   async function opslaan() {
@@ -278,6 +287,12 @@ export default function Opstelling() {
             </>
           )}
         </fieldset>
+      )}
+
+      {voorrangInfo && (
+        <p className="banner ok">
+          <strong>Voorrang:</strong> zaten vorige keer op de bank: {voorrangInfo}.
+        </p>
       )}
 
       {meldingen.length > 0 && (
