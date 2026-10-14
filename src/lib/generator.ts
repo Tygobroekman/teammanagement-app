@@ -27,6 +27,8 @@ export type GenVoorstel = {
   zonderPositie: string[]
   // Spelers die wel een positie hebben, maar niet konden worden ingepast zonder anderen op een verkeerde positie te zetten.
   nietIngezet: string[]
+  // Reservekeepers die niet meespelen omdat de keeper de hele wedstrijd blijft staan.
+  reservekeepers: string[]
 }
 
 const ONBEKEND_NIVEAU = 0.5
@@ -111,24 +113,27 @@ export function genereer(opts: {
   duur: number
   weging: number // 0 tot 100
   blokken?: number
+  // Standaard blijft de keeper de hele wedstrijd staan. Met true wisselen twee keepers per helft.
+  keepersWisselen?: boolean
 }): GenVoorstel | null {
   const { spelers, slots, duur } = opts
   const w = Math.min(100, Math.max(0, opts.weging)) / 100
   const K = opts.blokken ?? 6
+  // Kwadratisch: een halve wedstrijd op de bank is volle voorrang, een korte stint op de bank telt maar een beetje.
+  const voorrang = (sp: GenSpeler) => Math.min(1, Math.max(0, (sp.vorigeBankMin ?? 0) / (duur / 2))) ** 2
   if (spelers.length < slots.length) return null
 
-  // Is er precies een keeper, dan blijft die staan. Zijn er twee of meer, dan doen ze mee in de wisselronde
-  // zodat ook de tweede keeper speelminuten krijgt.
+  // De keeper blijft de hele wedstrijd staan en wisselt niet met veldspelers. Met twee keepers kies je er een
+  // (de beste, met voorrang voor wie vorige keer op de bank zat). Wil je dat ze per helft wisselen, dan kan dat apart.
   const keeperSlot = slots.find((s) => s.position_code === 'GK')
   const keepers = spelers.filter((s) => (s.niveaus.GK ?? 0) > 0)
-  const keeper = keeperSlot && keepers.length === 1 ? keepers[0] : undefined
+  const keeperScore = (sp: GenSpeler) => (sp.niveaus.GK ?? 0) + VOORRANG_NIVEAU * voorrang(sp)
+  const besteKeeper = [...keepers].sort((a, b) => keeperScore(b) - keeperScore(a))[0]
+  const keeper = keeperSlot && besteKeeper && !(opts.keepersWisselen && keepers.length >= 2) ? besteKeeper : undefined
   const veldSlots = keeper ? slots.filter((s) => s !== keeperSlot) : slots
   const pool = keeper ? spelers.filter((s) => s.id !== keeper.id) : spelers
   const f = veldSlots.length
   const P = pool.length
-
-  // Kwadratisch: een halve wedstrijd op de bank is volle voorrang, een korte stint op de bank telt maar een beetje.
-  const voorrang = (sp: GenSpeler) => Math.min(1, Math.max(0, (sp.vorigeBankMin ?? 0) / (duur / 2))) ** 2
 
   const kies = (kandidaten: GenSpeler[], vorige?: Map<string, number>) => {
     const kosten = veldSlots.map((sl) =>
@@ -270,5 +275,7 @@ export function genereer(opts: {
   const zonderPositie = spelers.filter((sp) => !slots.some((sl) => kan(sp, sl.position_code))).map((sp) => sp.id)
   const nietIngezet = pool.filter((sp, i) => kanSpelen[i] && (minuten.get(sp.id) ?? 0) === 0).map((sp) => sp.id)
   basis.sort((a, c) => a.slot - c.slot)
-  return { basis, wissels, minuten, buitenPositie, zonderPositie, nietIngezet }
+  // Een reservekeeper die niet meespeelt omdat de keeper blijft staan.
+  const reservekeepers = keeper ? keepers.filter((k) => k.id !== keeper.id && (minuten.get(k.id) ?? 0) === 0).map((k) => k.id) : []
+  return { basis, wissels, minuten, buitenPositie, zonderPositie, nietIngezet, reservekeepers }
 }

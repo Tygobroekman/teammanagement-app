@@ -39,6 +39,8 @@ export default function Opstelling() {
   const [voorstelOpen, setVoorstelOpen] = useState(false)
   const [meldingen, setMeldingen] = useState<string[]>([])
   const [voorrangInfo, setVoorrangInfo] = useState<string | null>(null)
+  const [keeperWisselen, setKeeperWisselen] = useState(false)
+  const [keeperInfo, setKeeperInfo] = useState<string | null>(null)
   const [weging, setWeging] = useState(50)
   const [bezig, setBezig] = useState(false)
   const [fout, setFout] = useState<string | null>(null)
@@ -173,6 +175,7 @@ export default function Opstelling() {
       duur,
       weging,
       blokken: 2,
+      keepersWisselen: keeperWisselen,
     })
     if (!v) return setFout(`Voor een voorstel zijn minstens ${slots.length} aanwezige spelers nodig.`)
     const basis = new Map(v.basis.map((b) => [b.slot, b.player_id]))
@@ -204,6 +207,11 @@ export default function Opstelling() {
       return `${g.naam} (${g.vorigeBankMin}' bank, nu ${inBasis.has(g.id) ? 'basis' : min > 0 ? '2e helft' : 'speelt niet'})`
     })
     setVoorrangInfo(voorrang.length ? voorrang.join(', ') : null)
+    setKeeperInfo(
+      v.reservekeepers.length
+        ? `${v.reservekeepers.map((id) => naam(id)).join(', ')} is reservekeeper en speelt niet mee, want de keeper blijft de hele wedstrijd staan.`
+        : null,
+    )
   }
 
   async function opslaan() {
@@ -289,6 +297,12 @@ export default function Opstelling() {
                 <span className={weging < 50 ? 'dik' : ''}>Sterkste elf</span>
                 <span className={weging > 50 ? 'dik' : ''}>Eerlijke speeltijd</span>
               </div>
+              {genSpelers.filter((g) => (g.niveaus.GK ?? 0) > 0).length >= 2 && (
+                <label className="regel">
+                  <input type="checkbox" checked={keeperWisselen} onChange={(e) => setKeeperWisselen(e.target.checked)} />
+                  Reservekeeper mag in de 2e helft keepen
+                </label>
+              )}
               <button type="button" onClick={maakVoorstel}>Maak voorstel</button>
               <p className="sub">Daarna kun je alles nog zelf aanpassen.</p>
             </>
@@ -301,6 +315,8 @@ export default function Opstelling() {
           <strong>Voorrang:</strong> zaten vorige keer op de bank: {voorrangInfo}.
         </p>
       )}
+
+      {keeperInfo && <p className="sub">{keeperInfo}</p>}
 
       {meldingen.length > 0 && (
         <div className="banner">
